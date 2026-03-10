@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Bash(npx create-next-app@latest temp-init --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Bash(mv temp-init/* temp-init/.* . 2>/dev/null; rmdir temp-init 2>/dev/null; ls -la)",
+      "Bash(npm install:*)",
+      "Bash(npx next:*)",
+      "WebSearch",
+      "Bash(claude mcp:*)",
+      "Bash(git init:*)",
+      "Bash(gh repo:*)",
+      "Bash(git remote:*)"
+    ]
+  }
+}
