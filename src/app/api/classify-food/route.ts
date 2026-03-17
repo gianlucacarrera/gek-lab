@@ -27,7 +27,14 @@ export async function POST(request: NextRequest) {
 
 ${RESTRICTED_GROUPS_PROMPT}
 
-Analizza il piatto o alimento fornito. Identifica gli ingredienti tipici e verifica se QUALCUNO di essi appartiene a uno dei tre gruppi ristretti.
+Analizza il piatto o alimento fornito. Identifica TUTTI gli ingredienti tipici della ricetta italiana e verifica se QUALCUNO di essi appartiene a uno dei tre gruppi ristretti.
+
+IMPORTANTE:
+- "pasta" senza qualifica (pasta al pomodoro, pasta alla carbonara, spaghetti, penne, etc.) è SEMPRE pasta di frumento → gruppo wheat → excluded
+- Solo "pasta di riso", "pasta di grano saraceno", "pasta di legumi" sono consentite
+- "pane", "pizza", "focaccia", "grissini" sono SEMPRE frumento → excluded
+- Formaggi di qualsiasi tipo (parmigiano, pecorino, mozzarella, ricotta) → gruppo yeasts → excluded
+- Sugo/ragù contiene pomodoro → gruppo nickel → excluded
 
 Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza markdown, senza commenti:
 {
@@ -37,11 +44,12 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza markdown, senza commen
 }
 
 Regole:
-- "excluded" se contiene ingredienti di QUALSIASI gruppo ristretto
+- "excluded" se contiene ingredienti di QUALSIASI gruppo ristretto (anche solo uno)
 - "limited" se contiene tracce minime o ingredienti ambigui
-- "allowed" se non contiene ingredienti dei gruppi ristretti
-- "groups" elenca solo i gruppi effettivamente presenti (array vuoto se allowed)
-- "reason" è una frase breve e chiara in italiano`,
+- "allowed" SOLO se non contiene NESSUN ingrediente dei gruppi ristretti
+- "groups" elenca TUTTI i gruppi effettivamente presenti (array vuoto se allowed)
+- "reason" è una frase breve e chiara in italiano
+- Nel dubbio, classifica come "excluded" — meglio essere prudenti`,
       messages: [{
         role: 'user',
         content: food,
