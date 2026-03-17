@@ -13,6 +13,7 @@ import EveningRecap from '@/components/alimentazione/EveningRecap';
 import TodayResult from '@/components/alimentazione/TodayResult';
 import ScoreCalendar from '@/components/alimentazione/ScoreCalendar';
 import ComplianceTrend from '@/components/alimentazione/ComplianceTrend';
+import SugarTracker from '@/components/SugarTracker';
 
 /* ─── Diet Start Onboarding ────────────────────────────────────────── */
 function DietStartPrompt({ onStart }: { onStart: () => void }) {
@@ -202,6 +203,8 @@ function AlimentazioneActive({
       <div className="px-4 space-y-4">
         <JourneyBanner allLogs={allLogs} />
         <TodayCard dayType={dayType} />
+
+        <SugarTracker compact />
 
         {showFoodInput ? (
           <EveningRecap

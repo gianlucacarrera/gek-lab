@@ -18,7 +18,7 @@ const CATEGORY_TABS = [
   { key: 'DRIED_FRUIT' as const, label: 'Frutta secca' },
 ];
 
-export default function SugarTracker() {
+export default function SugarTracker({ compact = false }: { compact?: boolean }) {
   const [tracker, setTracker] = useState<{ weekStartDate: string; dailyTotals: Record<number, number> }>({ weekStartDate: '', dailyTotals: {} });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<typeof CATEGORY_TABS[number]['key']>('SWEETS');
@@ -66,80 +66,97 @@ export default function SugarTracker() {
 
   const filteredItems = SUGAR_UNIT_ITEMS.filter((item) => item.category === activeCategory);
 
+  const compactRadius = 30;
+  const compactCircumference = 2 * Math.PI * compactRadius;
+  const compactDashOffset = compactCircumference * (1 - fraction);
+
   return (
     <>
-      <div className="card space-y-4">
-        {/* Circular Counter */}
-        <div className="flex flex-col items-center">
-          <div className="relative">
-            <svg width="150" height="150" viewBox="0 0 150 150">
-              {/* Background circle */}
-              <circle
-                cx="75"
-                cy="75"
-                r={radius}
-                fill="none"
-                stroke="var(--color-cream-dark)"
-                strokeWidth="12"
-              />
-              {/* Progress arc */}
-              <circle
-                cx="75"
-                cy="75"
-                r={radius}
-                fill="none"
-                stroke={gaugeColor}
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-                transform="rotate(-90 75 75)"
-                className="transition-all duration-500"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-[var(--color-text)]">{weeklyTotal}</span>
-              <span className="text-xs text-[var(--color-text-lighter)]">/ {MAX_WEEKLY_SUGAR_UNITS}</span>
-            </div>
-          </div>
-          <p className="text-xs text-[var(--color-text-light)] mt-1">Unità zuccherine questa settimana</p>
-        </div>
-
-        {/* Day dots */}
-        <div className="flex justify-center gap-2">
-          {DAY_LABELS.map((label, i) => {
-            const dayUnits = tracker.dailyTotals[i] ?? 0;
-            const isToday = i === todayIndex;
-            return (
-              <div key={i} className="flex flex-col items-center gap-1">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors duration-200 ${
-                    isToday
-                      ? 'ring-2 ring-[var(--color-terracotta)] ring-offset-1'
-                      : ''
-                  } ${
-                    dayUnits > 0
-                      ? 'bg-[var(--color-amber-light)] text-[var(--color-amber)]'
-                      : 'bg-[var(--color-cream-dark)] text-[var(--color-text-lighter)]'
-                  }`}
-                >
-                  {dayUnits > 0 ? dayUnits : ''}
+      <div className={compact ? 'card space-y-3' : 'card space-y-4'}>
+        {compact ? (
+          /* ─── Compact layout: inline ring + day dots + add button ─── */
+          <>
+            <div className="flex items-center gap-3">
+              <div className="relative flex-shrink-0">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r={compactRadius} fill="none" stroke="var(--color-cream-dark)" strokeWidth="6" />
+                  <circle cx="32" cy="32" r={compactRadius} fill="none" stroke={gaugeColor} strokeWidth="6" strokeLinecap="round"
+                    strokeDasharray={compactCircumference} strokeDashoffset={compactDashOffset}
+                    transform="rotate(-90 32 32)" className="transition-all duration-500" />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-sm font-bold text-[var(--color-text)]">{weeklyTotal}</span>
+                  <span className="text-[8px] text-[var(--color-text-lighter)]">/{MAX_WEEKLY_SUGAR_UNITS}</span>
                 </div>
-                <span className={`text-[10px] ${isToday ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-text-lighter)]'}`}>
-                  {label}
-                </span>
               </div>
-            );
-          })}
-        </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-[var(--color-text)]">Unità Zuccherine</p>
+                <div className="flex gap-1 mt-1.5">
+                  {DAY_LABELS.map((label, i) => {
+                    const dayUnits = tracker.dailyTotals[i] ?? 0;
+                    const isToday = i === todayIndex;
+                    return (
+                      <div key={i} className="flex flex-col items-center">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium ${
+                          isToday ? 'ring-1 ring-[var(--color-terracotta)] ring-offset-1' : ''
+                        } ${dayUnits > 0 ? 'bg-[var(--color-amber-light)] text-[var(--color-amber)]' : 'bg-[var(--color-cream-dark)] text-[var(--color-text-lighter)]'}`}>
+                          {dayUnits > 0 ? dayUnits : ''}
+                        </div>
+                        <span className={`text-[7px] mt-0.5 ${isToday ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-text-lighter)]'}`}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                onClick={() => setSheetOpen(true)}
+                className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-terracotta)] text-white flex items-center justify-center text-sm font-bold hover:opacity-90"
+              >
+                +
+              </button>
+            </div>
+          </>
+        ) : (
+          /* ─── Full layout ─── */
+          <>
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <svg width="150" height="150" viewBox="0 0 150 150">
+                  <circle cx="75" cy="75" r={radius} fill="none" stroke="var(--color-cream-dark)" strokeWidth="12" />
+                  <circle cx="75" cy="75" r={radius} fill="none" stroke={gaugeColor} strokeWidth="12" strokeLinecap="round"
+                    strokeDasharray={circumference} strokeDashoffset={dashOffset}
+                    transform="rotate(-90 75 75)" className="transition-all duration-500" />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-[var(--color-text)]">{weeklyTotal}</span>
+                  <span className="text-xs text-[var(--color-text-lighter)]">/ {MAX_WEEKLY_SUGAR_UNITS}</span>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--color-text-light)] mt-1">Unità zuccherine questa settimana</p>
+            </div>
 
-        {/* Add button */}
-        <button
-          onClick={() => setSheetOpen(true)}
-          className="btn-primary w-full justify-center"
-        >
-          + Aggiungi quello che hai mangiato
-        </button>
+            <div className="flex justify-center gap-2">
+              {DAY_LABELS.map((label, i) => {
+                const dayUnits = tracker.dailyTotals[i] ?? 0;
+                const isToday = i === todayIndex;
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors duration-200 ${
+                      isToday ? 'ring-2 ring-[var(--color-terracotta)] ring-offset-1' : ''
+                    } ${dayUnits > 0 ? 'bg-[var(--color-amber-light)] text-[var(--color-amber)]' : 'bg-[var(--color-cream-dark)] text-[var(--color-text-lighter)]'}`}>
+                      {dayUnits > 0 ? dayUnits : ''}
+                    </div>
+                    <span className={`text-[10px] ${isToday ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-text-lighter)]'}`}>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button onClick={() => setSheetOpen(true)} className="btn-primary w-full justify-center">
+              + Aggiungi quello che hai mangiato
+            </button>
+          </>
+        )}
 
         {/* Clear / Reset buttons */}
         <div className="flex gap-2">

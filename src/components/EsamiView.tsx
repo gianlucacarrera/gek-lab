@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Accordion from '@/components/Accordion';
-import SugarTracker from '@/components/SugarTracker';
 import {
   LAB_MARKERS,
   GENETIC_RESULTS,
@@ -743,19 +742,6 @@ export default function EsamiView({ userName }: { userName?: string }) {
         <BaffSection />
         <AlbuminaGlicataSection />
         <MetilgliossaleSection />
-      </div>
-
-      {/* Sugar Tracker */}
-      <div className="px-4 pt-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex-1 h-px bg-[var(--color-cream-dark)]" />
-          <h2 className="text-base font-semibold text-[var(--color-text)]">Unità Zuccherine</h2>
-          <div className="flex-1 h-px bg-[var(--color-cream-dark)]" />
-        </div>
-        <p className="text-xs text-[var(--color-text-lighter)] text-center mb-3">
-          Tieni il conto settimanale — massimo 15 unità
-        </p>
-        <SugarTracker />
       </div>
 
       {/* Divider + Genetic Profile Header */}
