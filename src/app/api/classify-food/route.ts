@@ -53,8 +53,13 @@ Regole:
       return NextResponse.json({ error: 'No response' }, { status: 500 });
     }
 
-    // Parse the JSON response
-    const parsed = JSON.parse(textBlock.text.trim());
+    // Parse the JSON response — strip markdown fences if present
+    let jsonText = textBlock.text.trim();
+    const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonText = fenceMatch[1].trim();
+    }
+    const parsed = JSON.parse(jsonText);
 
     return NextResponse.json({
       food,
