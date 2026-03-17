@@ -110,52 +110,50 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
             selectedFoods={selectedFoods}
             onToggle={handleToggle}
           />
-        </div>
 
-        {/* Custom food input */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">
-            Altro non in lista?
-          </h2>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={customInput}
-              onChange={(e) => setCustomInput(e.target.value)}
-              onKeyDown={handleCustomKeyDown}
-              placeholder="es. hummus, tofu..."
-              className="flex-1 rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] px-4 py-2.5
-                         text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-lighter)]
-                         focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200"
-            />
-            <button
-              onClick={handleAddCustom}
-              disabled={!customInput.trim()}
-              className="px-4 py-2.5 rounded-xl bg-[var(--color-terracotta)] text-white text-sm font-semibold
-                         transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
-            >
-              +
-            </button>
-          </div>
-          {customFoods.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {customFoods.map((food) => (
-                <span
-                  key={food}
-                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-cream)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-light)]"
-                >
-                  {food}
-                  <button
-                    onClick={() => handleRemoveCustom(food)}
-                    className="text-[var(--color-text-lighter)] hover:text-[var(--color-terracotta)] ml-0.5"
-                    aria-label={`Rimuovi ${food}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
+          {/* Custom food input — inline */}
+          <div className="pt-2 border-t border-[var(--color-cream-dark)] space-y-2.5">
+            <p className="text-xs font-medium text-[var(--color-text-lighter)]">Altro non in lista?</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={handleCustomKeyDown}
+                placeholder="es. hummus, tofu..."
+                className="flex-1 rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] px-3 py-2
+                           text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-lighter)]
+                           focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200"
+              />
+              <button
+                onClick={handleAddCustom}
+                disabled={!customInput.trim()}
+                className="px-3 py-2 rounded-xl bg-[var(--color-terracotta)] text-white text-sm font-semibold
+                           transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
+              >
+                +
+              </button>
             </div>
-          )}
+            {customFoods.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {customFoods.map((food) => (
+                  <span
+                    key={food}
+                    className="inline-flex items-center gap-1 rounded-full bg-[var(--color-cream)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-light)]"
+                  >
+                    {food}
+                    <button
+                      onClick={() => handleRemoveCustom(food)}
+                      className="text-[var(--color-text-lighter)] hover:text-[var(--color-terracotta)] ml-0.5"
+                      aria-label={`Rimuovi ${food}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Submit button */}
