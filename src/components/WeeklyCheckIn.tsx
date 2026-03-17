@@ -97,25 +97,23 @@ export default function WeeklyCheckIn({ onClose }: WeeklyCheckInProps) {
   const [checkIns, setCheckIns] = useState<CheckInResponse[]>([]);
 
   useEffect(() => {
-    setCheckIns(getCheckIns());
+    getCheckIns().then(setCheckIns);
   }, []);
 
-  const handleAnswer = (key: string, value: number) => {
+  const handleAnswer = async (key: string, value: number) => {
     const updated = { ...answers, [key]: value };
     setAnswers(updated);
 
     if (step < 2) {
-      // Auto-advance to next question
       setTimeout(() => setStep(step + 1), 300);
     } else {
-      // All answered — save and show result
       const response: CheckInResponse = {
         week: getWeekKey(),
         energy: updated.energy ?? 3,
         digestion: updated.digestion ?? 3,
         adherence: updated.adherence ?? 3,
       };
-      saveCheckIn(response);
+      await saveCheckIn(response);
       setCheckIns([...checkIns, response]);
       setTimeout(() => setStep(3), 300);
     }

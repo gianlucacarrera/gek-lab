@@ -1,28 +1,15 @@
 import type { DailyLog, StreakData } from './types';
 import type { CheckInResponse, SugarTrackerState } from '@/types/app';
+import { supabase } from './supabase';
 
-// Current user — set on login, used to scope all storage keys
-let _currentUserId: string | null = null;
-
-export function setCurrentUserId(userId: string | null): void {
-  _currentUserId = userId;
+// ─── Food classification cache (localStorage — shared, not user-specific) ───
+export interface FoodClassification {
+  status: 'excluded' | 'limited' | 'allowed';
+  groups: string[];
+  reason: string;
 }
 
-export function getCurrentUserId(): string | null {
-  return _currentUserId;
-}
-
-function userKey(base: string): string {
-  const uid = _currentUserId ?? 'anonymous';
-  return `gek_${uid}_${base}`;
-}
-
-// Food cache is shared across users (food classification doesn't change per user)
-const SHARED_KEYS = {
-  FOOD_CACHE: 'gek_food_cache',
-} as const;
-
-function read<T>(key: string, fallback: T): T {
+function readLocal<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = localStorage.getItem(key);
@@ -32,105 +19,13 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write(key: string, value: unknown): void {
+function writeLocal(key: string, value: unknown): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// Daily logs
-export function getDailyLogs(): Record<string, DailyLog> {
-  return read(userKey('daily_logs'), {});
-}
-
-export function getDailyLog(date: string): DailyLog | null {
-  const logs = getDailyLogs();
-  return logs[date] ?? null;
-}
-
-export function saveDailyLog(log: DailyLog): void {
-  const logs = getDailyLogs();
-  logs[log.date] = log;
-  write(userKey('daily_logs'), logs);
-}
-
-// Streak
-export function getStreak(): StreakData {
-  return read(userKey('streak'), { count: 0, lastDate: '' });
-}
-
-export function updateStreak(date: string, score: number): StreakData {
-  const streak = getStreak();
-
-  if (score >= 3) {
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    if (streak.lastDate === yesterdayStr || streak.lastDate === date) {
-      // Consecutive or same day update
-      if (streak.lastDate !== date) {
-        streak.count += 1;
-      }
-    } else {
-      // Gap — reset
-      streak.count = 1;
-    }
-    streak.lastDate = date;
-  } else {
-    // Score < 3 resets streak
-    streak.count = 0;
-    streak.lastDate = date;
-  }
-
-  write(userKey('streak'), streak);
-  return streak;
-}
-
-// Weekly notes
-export function getWeeklyNotes(): Record<string, string> {
-  return read(userKey('weekly_notes'), {});
-}
-
-export function saveWeeklyNote(weekKey: string, note: string): void {
-  const notes = getWeeklyNotes();
-  notes[weekKey] = note;
-  write(userKey('weekly_notes'), notes);
-}
-
-// Get the last 7 days of logs for weekly view
-export function getWeekLogs(endDate: string): (DailyLog | null)[] {
-  const logs = getDailyLogs();
-  const result: (DailyLog | null)[] = [];
-  const end = new Date(endDate);
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(end);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split('T')[0];
-    result.push(logs[key] ?? null);
-  }
-
-  return result;
-}
-
-// Diet start date
-export function getDietStartDate(): string | null {
-  return read(userKey('diet_start'), null);
-}
-
-export function setDietStartDate(date: string): void {
-  write(userKey('diet_start'), date);
-}
-
-// Food classification cache
-export interface FoodClassification {
-  status: 'excluded' | 'limited' | 'allowed';
-  groups: string[];
-  reason: string;
-}
-
 export function getFoodCache(): Record<string, FoodClassification> {
-  return read(SHARED_KEYS.FOOD_CACHE, {});
+  return readLocal('gek_food_cache', {});
 }
 
 export function getCachedClassification(food: string): FoodClassification | null {
@@ -141,53 +36,272 @@ export function getCachedClassification(food: string): FoodClassification | null
 export function cacheFoodClassification(food: string, classification: FoodClassification): void {
   const cache = getFoodCache();
   cache[food.toLowerCase()] = classification;
-  write(SHARED_KEYS.FOOD_CACHE, cache);
+  writeLocal('gek_food_cache', cache);
 }
 
-// All logs (for computing averages / calendar)
-export function getAllDailyLogs(): DailyLog[] {
-  const logs = getDailyLogs();
+// ─── Daily logs (Supabase) ──────────────────────────────────────────
+export async function getDailyLogs(): Promise<Record<string, DailyLog>> {
+  const { data } = await supabase
+    .from('daily_logs')
+    .select('date, day_type_id, selected_foods, score, ai_comment');
+
+  if (!data) return {};
+
+  const logs: Record<string, DailyLog> = {};
+  for (const row of data) {
+    logs[row.date] = {
+      date: row.date,
+      dayTypeId: row.day_type_id,
+      selectedFoods: row.selected_foods ?? [],
+      score: Number(row.score),
+      aiComment: row.ai_comment ?? '',
+    };
+  }
+  return logs;
+}
+
+export async function getDailyLog(date: string): Promise<DailyLog | null> {
+  const { data } = await supabase
+    .from('daily_logs')
+    .select('date, day_type_id, selected_foods, score, ai_comment')
+    .eq('date', date)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  return {
+    date: data.date,
+    dayTypeId: data.day_type_id,
+    selectedFoods: data.selected_foods ?? [],
+    score: Number(data.score),
+    aiComment: data.ai_comment ?? '',
+  };
+}
+
+export async function saveDailyLog(log: DailyLog): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return;
+
+  await supabase.from('daily_logs').upsert(
+    {
+      user_id: userId,
+      date: log.date,
+      day_type_id: log.dayTypeId,
+      selected_foods: log.selectedFoods,
+      score: log.score,
+      ai_comment: log.aiComment,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,date' }
+  );
+}
+
+// ─── Streak (Supabase) ──────────────────────────────────────────────
+export async function getStreak(): Promise<StreakData> {
+  const { data } = await supabase
+    .from('streaks')
+    .select('count, last_date')
+    .maybeSingle();
+
+  if (!data) return { count: 0, lastDate: '' };
+  return { count: data.count ?? 0, lastDate: data.last_date ?? '' };
+}
+
+export async function updateStreak(date: string, score: number): Promise<StreakData> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return { count: 0, lastDate: '' };
+
+  const streak = await getStreak();
+
+  if (score >= 3) {
+    const yesterday = new Date(date);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    if (streak.lastDate === yesterdayStr || streak.lastDate === date) {
+      if (streak.lastDate !== date) {
+        streak.count += 1;
+      }
+    } else {
+      streak.count = 1;
+    }
+    streak.lastDate = date;
+  } else {
+    streak.count = 0;
+    streak.lastDate = date;
+  }
+
+  await supabase.from('streaks').upsert(
+    {
+      user_id: userId,
+      count: streak.count,
+      last_date: streak.lastDate || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
+  return streak;
+}
+
+// ─── All logs (for averages / calendar) ─────────────────────────────
+export async function getAllDailyLogs(): Promise<DailyLog[]> {
+  const logs = await getDailyLogs();
   return Object.values(logs).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Sugar Tracker
-export function getSugarTracker(): SugarTrackerState {
+// ─── Diet start date (Supabase) ─────────────────────────────────────
+export async function getDietStartDate(): Promise<string | null> {
+  const { data } = await supabase
+    .from('diet_settings')
+    .select('diet_start_date')
+    .maybeSingle();
+
+  return data?.diet_start_date ?? null;
+}
+
+export async function setDietStartDate(date: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return;
+
+  await supabase.from('diet_settings').upsert(
+    {
+      user_id: userId,
+      diet_start_date: date,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+}
+
+// ─── Weekly notes (Supabase) ────────────────────────────────────────
+export async function getWeeklyNotes(): Promise<Record<string, string>> {
+  const { data } = await supabase
+    .from('weekly_notes')
+    .select('week_key, note');
+
+  if (!data) return {};
+  const notes: Record<string, string> = {};
+  for (const row of data) {
+    notes[row.week_key] = row.note;
+  }
+  return notes;
+}
+
+export async function saveWeeklyNote(weekKey: string, note: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return;
+
+  await supabase.from('weekly_notes').upsert(
+    {
+      user_id: userId,
+      week_key: weekKey,
+      note,
+    },
+    { onConflict: 'user_id,week_key' }
+  );
+}
+
+// ─── Weekly Check-In (Supabase) ─────────────────────────────────────
+export async function getCheckIns(): Promise<CheckInResponse[]> {
+  const { data } = await supabase
+    .from('check_ins')
+    .select('week, energy, digestion, adherence')
+    .order('created_at', { ascending: true });
+
+  if (!data) return [];
+  return data.map((row) => ({
+    week: row.week,
+    energy: row.energy,
+    digestion: row.digestion,
+    adherence: row.adherence,
+  }));
+}
+
+export async function saveCheckIn(response: CheckInResponse): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return;
+
+  await supabase.from('check_ins').upsert(
+    {
+      user_id: userId,
+      week: response.week,
+      energy: response.energy,
+      digestion: response.digestion,
+      adherence: response.adherence,
+    },
+    { onConflict: 'user_id,week' }
+  );
+}
+
+// ─── Sugar Tracker (Supabase) ───────────────────────────────────────
+export async function getSugarTracker(): Promise<SugarTrackerState> {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
   const defaultStart = monday.toISOString().split('T')[0];
 
-  const state = read<SugarTrackerState>(userKey('sugar_tracker'), {
-    weekStartDate: defaultStart,
-    dailyTotals: {},
-  });
+  const { data } = await supabase
+    .from('sugar_tracker')
+    .select('week_start_date, daily_totals')
+    .maybeSingle();
 
-  // Reset if we're in a new week
-  if (state.weekStartDate !== defaultStart) {
-    state.weekStartDate = defaultStart;
-    state.dailyTotals = {};
-    write(userKey('sugar_tracker'), state);
+  if (!data || data.week_start_date !== defaultStart) {
+    // New week or no data — return fresh state (will be saved on first add)
+    return { weekStartDate: defaultStart, dailyTotals: {} };
   }
 
-  return state;
+  return {
+    weekStartDate: data.week_start_date,
+    dailyTotals: (data.daily_totals as Record<string, number>) ?? {},
+  };
 }
 
-export function addSugarUnits(dayIndex: number, units: number): SugarTrackerState {
-  const state = getSugarTracker();
+export async function addSugarUnits(dayIndex: number, units: number): Promise<SugarTrackerState> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return { weekStartDate: '', dailyTotals: {} };
+
+  const state = await getSugarTracker();
   state.dailyTotals[dayIndex] = (state.dailyTotals[dayIndex] ?? 0) + units;
-  write(userKey('sugar_tracker'), state);
+
+  await supabase.from('sugar_tracker').upsert(
+    {
+      user_id: userId,
+      week_start_date: state.weekStartDate,
+      daily_totals: state.dailyTotals,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
   return state;
 }
 
-export function clearSugarDay(dayIndex: number): SugarTrackerState {
-  const state = getSugarTracker();
+export async function clearSugarDay(dayIndex: number): Promise<SugarTrackerState> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return { weekStartDate: '', dailyTotals: {} };
+
+  const state = await getSugarTracker();
   delete state.dailyTotals[dayIndex];
-  write(userKey('sugar_tracker'), state);
+
+  await supabase.from('sugar_tracker').upsert(
+    {
+      user_id: userId,
+      week_start_date: state.weekStartDate,
+      daily_totals: state.dailyTotals,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
   return state;
 }
 
-export function resetSugarWeek(): SugarTrackerState {
+export async function resetSugarWeek(): Promise<SugarTrackerState> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return { weekStartDate: '', dailyTotals: {} };
+
   const now = new Date();
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
@@ -196,23 +310,19 @@ export function resetSugarWeek(): SugarTrackerState {
     weekStartDate: monday.toISOString().split('T')[0],
     dailyTotals: {},
   };
-  write(userKey('sugar_tracker'), state);
+
+  await supabase.from('sugar_tracker').upsert(
+    {
+      user_id: userId,
+      week_start_date: state.weekStartDate,
+      daily_totals: state.dailyTotals,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
   return state;
 }
 
-// Weekly Check-In
-export function getCheckIns(): CheckInResponse[] {
-  return read(userKey('check_ins'), []);
-}
-
-export function saveCheckIn(response: CheckInResponse): void {
-  const checkIns = getCheckIns();
-  // Replace if same week already exists
-  const existing = checkIns.findIndex((c) => c.week === response.week);
-  if (existing >= 0) {
-    checkIns[existing] = response;
-  } else {
-    checkIns.push(response);
-  }
-  write(userKey('check_ins'), checkIns);
-}
+// Legacy sync exports removed — all storage is now async via Supabase
+// Components must use useEffect + useState to load data

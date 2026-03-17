@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface LoginPageProps {
-  onLogin: (user: { id: string; name: string; role: string }) => void;
+  onLogin: () => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,26 +18,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
     setLoading(true);
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+    // Allow login by username (map to email)
+    const loginEmail = email.includes('@') ? email : `${email}@geklab.demo`;
 
-      const data = await res.json();
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password,
+    });
 
-      if (!res.ok) {
-        setError(data.error || 'Errore di accesso');
-        setLoading(false);
-        return;
-      }
-
-      onLogin(data.user);
-    } catch {
-      setError('Errore di connessione');
+    if (authError) {
+      setError('Credenziali non valide');
       setLoading(false);
+      return;
     }
+
+    onLogin();
   };
 
   return (
@@ -52,19 +48,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div>
-            <label htmlFor="username" className="block text-xs font-medium text-[var(--color-text-light)] mb-1">
+            <label htmlFor="email" className="block text-xs font-medium text-[var(--color-text-light)] mb-1">
               Utente
             </label>
             <input
-              id="username"
+              id="email"
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
               required
               className="w-full px-4 py-2.5 rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] text-sm text-[var(--color-text)]
                          placeholder:text-[var(--color-text-lighter)] focus:outline-none focus:border-[var(--color-terracotta)] transition-colors"
-              placeholder="Nome utente"
+              placeholder="Nome utente o email"
             />
           </div>
 

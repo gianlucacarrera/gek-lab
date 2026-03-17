@@ -19,13 +19,12 @@ const CATEGORY_TABS = [
 ];
 
 export default function SugarTracker() {
-  const [tracker, setTracker] = useState(getSugarTracker);
+  const [tracker, setTracker] = useState<{ weekStartDate: string; dailyTotals: Record<number, number> }>({ weekStartDate: '', dailyTotals: {} });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<typeof CATEGORY_TABS[number]['key']>('SWEETS');
 
-  // Refresh tracker from storage
   useEffect(() => {
-    setTracker(getSugarTracker());
+    getSugarTracker().then(setTracker);
   }, []);
 
   const todayIndex = (() => {
@@ -50,18 +49,18 @@ export default function SugarTracker() {
   const fraction = Math.min(weeklyTotal / MAX_WEEKLY_SUGAR_UNITS, 1);
   const dashOffset = circumference * (1 - fraction);
 
-  const handleAddItem = (units: number) => {
-    const updated = addSugarUnits(todayIndex, units);
+  const handleAddItem = async (units: number) => {
+    const updated = await addSugarUnits(todayIndex, units);
     setTracker({ ...updated });
   };
 
-  const handleClearToday = () => {
-    const updated = clearSugarDay(todayIndex);
+  const handleClearToday = async () => {
+    const updated = await clearSugarDay(todayIndex);
     setTracker({ ...updated });
   };
 
-  const handleNewWeek = () => {
-    const updated = resetSugarWeek();
+  const handleNewWeek = async () => {
+    const updated = await resetSugarWeek();
     setTracker({ ...updated });
   };
 

@@ -262,7 +262,7 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
       // fallback comment already set
     }
 
-    saveDailyLog({
+    await saveDailyLog({
       date,
       dayTypeId: dayType.id,
       selectedFoods,
@@ -270,7 +270,7 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
       aiComment: comment,
     });
 
-    updateStreak(date, runningScore);
+    await updateStreak(date, runningScore);
     onComplete();
   };
 

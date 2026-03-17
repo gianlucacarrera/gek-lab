@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Tab } from '@/types/app';
-import { getDietStartDate, setCurrentUserId } from '@/lib/storage';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import { getDietStartDate } from '@/lib/storage';
 import { setRotationStartDate } from '@/data/constants';
 import LoginPage from '@/components/LoginPage';
 import EsamiView from '@/components/EsamiView';
@@ -11,51 +13,44 @@ import AlimentazioneView from '@/components/AlimentazioneView';
 import WeeklyCheckIn from '@/components/WeeklyCheckIn';
 import BottomNav from '@/components/BottomNav';
 
-interface User {
-  id: string;
-  name: string;
-  role: string;
-}
-
 export default function Page() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('esami');
   const [checkInOpen, setCheckInOpen] = useState(false);
 
-  // Check existing session on mount
+  // Check existing session + listen for auth changes
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.user) {
-          setUser(data.user);
-          setCurrentUserId(data.user.id);
-          // Initialize rotation start date from user-scoped storage
-          const stored = getDietStartDate();
-          if (stored) setRotationStartDate(stored);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setAuthChecked(true));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = useCallback((loggedInUser: User) => {
-    setUser(loggedInUser);
-    setCurrentUserId(loggedInUser.id);
-    // Initialize rotation start date from user-scoped storage
-    const stored = getDietStartDate();
-    if (stored) setRotationStartDate(stored);
+  // Initialize rotation start date when user is set
+  useEffect(() => {
+    if (!user) return;
+    getDietStartDate().then((stored) => {
+      if (stored) setRotationStartDate(stored);
+    });
+  }, [user]);
+
+  const handleLogin = useCallback(() => {
+    // Auth state change listener will update `user`
   }, []);
 
   const handleLogout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setCurrentUserId(null);
+    await supabase.auth.signOut();
     setActiveTab('esami');
   }, []);
 
-  // Loading state while checking auth
+  // Loading
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-[var(--color-cream)] flex items-center justify-center">
@@ -64,18 +59,19 @@ export default function Page() {
     );
   }
 
-  // Not logged in — show login
+  // Not logged in
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  // Logged in — show app
+  const userName = user.user_metadata?.name ?? user.email?.split('@')[0] ?? '';
+
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto relative">
       {/* User header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-0">
         <span className="text-xs text-[var(--color-text-lighter)]">
-          {user.name}
+          {userName}
         </span>
         <button
           onClick={handleLogout}

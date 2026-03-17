@@ -44,36 +44,33 @@ function DietStartPrompt({ onStart }: { onStart: () => void }) {
 
 /* ─── Main View ────────────────────────────────────────────────────── */
 export default function AlimentazioneView() {
-  const [dietStarted, setDietStarted] = useState<boolean | null>(null); // null = loading
+  const [dietStarted, setDietStarted] = useState<boolean | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Initialize diet start date from storage
   useEffect(() => {
-    const stored = getDietStartDate();
-    if (stored) {
-      setRotationStartDate(stored);
-      setDietStarted(true);
-    } else {
-      setDietStarted(false);
-    }
+    getDietStartDate().then((stored) => {
+      if (stored) {
+        setRotationStartDate(stored);
+        setDietStarted(true);
+      } else {
+        setDietStarted(false);
+      }
+    });
   }, []);
 
-  const handleStartDiet = useCallback(() => {
+  const handleStartDiet = useCallback(async () => {
     const todayStr = new Date().toISOString().split('T')[0];
-    setDietStartDate(todayStr);
+    await setDietStartDate(todayStr);
     setRotationStartDate(todayStr);
     setDietStarted(true);
   }, []);
 
-  // Loading state
   if (dietStarted === null) return null;
 
-  // Onboarding: diet not started yet
   if (!dietStarted) {
     return <DietStartPrompt onStart={handleStartDiet} />;
   }
 
-  // Diet is active — show the full view
   return <AlimentazioneActive refreshKey={refreshKey} onRefresh={() => setRefreshKey((k) => k + 1)} />;
 }
 
@@ -100,14 +97,27 @@ function AlimentazioneActive({
   const [allLogs, setAllLogs] = useState<DailyLog[]>([]);
   const [showFoodInput, setShowFoodInput] = useState(false);
   const [editingFoods, setEditingFoods] = useState<string[] | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setTodayLog(getDailyLog(todayStr));
-    setStreak(getStreak());
-    setAllLogs(getAllDailyLogs());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    setYesterdayLog(getDailyLog(yesterday.toISOString().split('T')[0]));
+    async function load() {
+      setLoading(true);
+      const [log, streakData, logs] = await Promise.all([
+        getDailyLog(todayStr),
+        getStreak(),
+        getAllDailyLogs(),
+      ]);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yLog = await getDailyLog(yesterday.toISOString().split('T')[0]);
+
+      setTodayLog(log);
+      setStreak(streakData);
+      setAllLogs(logs);
+      setYesterdayLog(yLog);
+      setLoading(false);
+    }
+    load();
   }, [todayStr, today, refreshKey]);
 
   const handleRecapComplete = useCallback(() => {
@@ -128,7 +138,6 @@ function AlimentazioneActive({
 
     const updatedFoods = todayLog.selectedFoods.filter((f) => f !== foodToRemove);
 
-    // Build classifications for custom foods from cache
     const customClassifications: Record<string, { status: 'excluded' | 'limited' | 'allowed'; groups: string[]; reason: string }> = {};
     for (const food of updatedFoods) {
       if (!FOOD_RULES.find((r) => r.food === food)) {
@@ -139,7 +148,6 @@ function AlimentazioneActive({
 
     const newScore = calculateScore(updatedFoods, FOOD_RULES, dayType, customClassifications);
 
-    // Re-run AI comment
     const foodStatuses = updatedFoods.map((food) => {
       const rule = FOOD_RULES.find((r) => r.food === food);
       const customClass = customClassifications[food];
@@ -165,34 +173,36 @@ function AlimentazioneActive({
       // keep existing comment
     }
 
-    saveDailyLog({
+    await saveDailyLog({
       date: todayStr,
       dayTypeId: dayType.id,
       selectedFoods: updatedFoods,
       score: newScore,
       aiComment: comment,
     });
-    updateStreak(todayStr, newScore);
+    await updateStreak(todayStr, newScore);
     onRefresh();
   }, [todayLog, dayType, todayStr, onRefresh]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-cream)] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--color-cream-dark)] border-t-[var(--color-terracotta)] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-cream)] pb-24">
-      {/* Header */}
       <div className="px-4 pt-5 pb-3">
         <h1 className="text-xl font-bold text-[var(--color-text)]">Alimentazione</h1>
       </div>
 
       <div className="px-4 space-y-4">
-        {/* 1. Journey Banner — 30,000ft view */}
         <JourneyBanner allLogs={allLogs} />
-
-        {/* 2. Today's Card — day type + suggestions */}
         <TodayCard dayType={dayType} />
 
-        {/* 3. Food Input / Result */}
         {showFoodInput ? (
-          /* Food input mode (new or edit) */
           <EveningRecap
             dayType={dayType}
             date={todayStr}
@@ -200,7 +210,6 @@ function AlimentazioneActive({
             initialFoods={editingFoods}
           />
         ) : todayLog ? (
-          /* Already logged — show result with edit option */
           <TodayResult
             todayLog={todayLog}
             yesterdayScore={yesterdayLog?.score ?? null}
@@ -209,7 +218,6 @@ function AlimentazioneActive({
             onRemoveFood={handleRemoveFood}
           />
         ) : (
-          /* No log yet — CTA */
           <button
             onClick={() => setShowFoodInput(true)}
             className="btn-primary w-full justify-center py-4"
@@ -218,7 +226,6 @@ function AlimentazioneActive({
           </button>
         )}
 
-        {/* 4. Score Calendar */}
         <div className="pt-2">
           <ScoreCalendar allLogs={allLogs} streak={streak} />
         </div>
