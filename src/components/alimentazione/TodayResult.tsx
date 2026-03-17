@@ -9,6 +9,7 @@ interface TodayResultProps {
   todayLog: DailyLog;
   yesterdayScore: number | null;
   tomorrowDayType: DayTypeDefinition;
+  dayType: DayTypeDefinition;
   onEdit: () => void;
   onRemoveFood: (food: string) => void;
 }
@@ -108,9 +109,70 @@ function getStatusLabel(status: string) {
   }
 }
 
-export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, onEdit, onRemoveFood }: TodayResultProps) {
+const SUGAR_KEYWORDS = [
+  'gelato', 'torta', 'tiramisù', 'tiramisu', 'biscotti', 'brioche', 'cornetto',
+  'cioccolato', 'dolce', 'dolci', 'merendina', 'caramella',
+  'miele', 'marmellata', 'zucchero', 'budino', 'panna cotta', 'crostata',
+  'birra', 'vino', 'cocktail', 'spritz', 'liquore', 'succo', 'bibita',
+];
+
+function getMarkerInsights(foods: Array<{ food: string; status: string }>, dayType: DayTypeDefinition): string[] {
+  const insights: string[] = [];
+  const hasWheat = foods.some(({ food }) => {
+    const rule = FOOD_RULES.find((r) => r.food === food);
+    return rule?.category === 'carboidrati' && rule?.status === 'excluded';
+  });
+  const hasFermented = foods.some(({ food }) => {
+    const rule = FOOD_RULES.find((r) => r.food === food);
+    return rule?.category === 'proteine' && rule?.status === 'excluded';
+  });
+  const allAllowed = foods.every(({ status }) => status === 'allowed');
+
+  if (dayType.id === 'controlled') {
+    if (allAllowed && foods.length > 0) {
+      insights.push('Oggi hai evitato tutti i gruppi in rotazione — il tuo BAFF e le IgG ti ringraziano');
+    }
+    if (hasWheat) {
+      insights.push('Il frumento influenza il tuo BAFF — nei prossimi pasti prova il riso o il grano saraceno');
+    }
+    if (hasFermented) {
+      insights.push('I fermentati mantengono attivo il gruppo Lieviti — preferisci proteine fresche');
+    }
+  }
+
+  // Check for custom foods with excluded classification
+  for (const { food, status } of foods) {
+    if (status === 'excluded' && !FOOD_RULES.find((r) => r.food === food)) {
+      const cached = getCachedClassification(food);
+      if (cached?.groups?.includes('wheat')) {
+        insights.push(`"${food}" contiene frumento — incide sul tuo BAFF`);
+      } else if (cached?.groups?.includes('yeasts')) {
+        insights.push(`"${food}" contiene fermentati — incide sul gruppo Lieviti`);
+      } else if (cached?.groups?.includes('nickel')) {
+        insights.push(`"${food}" contiene nichel — meglio evitarlo nei giorni controllati`);
+      }
+    }
+    if (insights.length >= 2) break;
+  }
+
+  return insights.slice(0, 2);
+}
+
+export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, dayType, onEdit, onRemoveFood }: TodayResultProps) {
   const foodStatuses = useMemo(
     () => todayLog.selectedFoods.map((food) => ({ food, status: getFoodStatus(food) })),
+    [todayLog.selectedFoods]
+  );
+
+  const markerInsights = useMemo(
+    () => getMarkerInsights(foodStatuses, dayType),
+    [foodStatuses, dayType]
+  );
+
+  const hasSugarFoods = useMemo(
+    () => todayLog.selectedFoods.some((food) =>
+      SUGAR_KEYWORDS.some((kw) => food.toLowerCase().includes(kw))
+    ),
     [todayLog.selectedFoods]
   );
 
@@ -142,6 +204,30 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
             {todayLog.score === yesterdayScore && ' — costante'}
             {todayLog.score < yesterdayScore && ' — un passo indietro, domani si riparte'}
           </p>
+        )}
+
+        {/* Marker insights */}
+        {markerInsights.length > 0 && (
+          <div className="space-y-1">
+            {markerInsights.map((insight, i) => (
+              <p key={i} className={`text-xs leading-relaxed ${
+                insight.includes('evitato') || insight.includes('ringraziano')
+                  ? 'text-[var(--color-sage-dark)]'
+                  : 'text-[var(--color-amber)]'
+              }`}>
+                {insight.includes('evitato') ? '✓ ' : '→ '}{insight}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Sugar tracker hint */}
+        {hasSugarFoods && (
+          <div className="rounded-xl bg-[var(--color-amber-bg)] px-3 py-2">
+            <p className="text-xs text-[var(--color-amber)]">
+              🍬 Alcuni alimenti di oggi contengono zucchero — ricorda di aggiornare le Unità Zuccherine nel tab Esami
+            </p>
+          </div>
         )}
 
         {/* Food list with badges */}

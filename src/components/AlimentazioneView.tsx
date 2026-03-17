@@ -12,6 +12,7 @@ import TodayCard from '@/components/alimentazione/TodayCard';
 import EveningRecap from '@/components/alimentazione/EveningRecap';
 import TodayResult from '@/components/alimentazione/TodayResult';
 import ScoreCalendar from '@/components/alimentazione/ScoreCalendar';
+import ComplianceTrend from '@/components/alimentazione/ComplianceTrend';
 
 /* ─── Diet Start Onboarding ────────────────────────────────────────── */
 function DietStartPrompt({ onStart }: { onStart: () => void }) {
@@ -208,12 +209,14 @@ function AlimentazioneActive({
             date={todayStr}
             onComplete={handleRecapComplete}
             initialFoods={editingFoods}
+            allLogs={allLogs}
           />
         ) : todayLog ? (
           <TodayResult
             todayLog={todayLog}
             yesterdayScore={yesterdayLog?.score ?? null}
             tomorrowDayType={tomorrowDayType}
+            dayType={dayType}
             onEdit={handleEdit}
             onRemoveFood={handleRemoveFood}
           />
@@ -229,6 +232,9 @@ function AlimentazioneActive({
         <div className="pt-2">
           <ScoreCalendar allLogs={allLogs} streak={streak} />
         </div>
+
+        {/* 5. Compliance trend chart */}
+        <ComplianceTrend allLogs={allLogs} />
       </div>
     </div>
   );

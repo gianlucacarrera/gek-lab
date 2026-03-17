@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { DayTypeDefinition } from '@/lib/types';
+import type { DayTypeDefinition, DailyLog } from '@/lib/types';
 import { FOOD_RULES } from '@/data/foodRules';
 import { calculateScore, classifyCustomFood } from '@/lib/scoringEngine';
 import { saveDailyLog, updateStreak } from '@/lib/storage';
@@ -13,6 +13,7 @@ interface EveningRecapProps {
   date: string;
   onComplete: () => void;
   initialFoods?: string[];
+  allLogs?: DailyLog[];
 }
 
 type Step = 'select' | 'classifying' | 'saving';
@@ -158,7 +159,7 @@ function CustomFoodChip({
 }
 
 /* ─── Main Component ───────────────────────────────────────────────── */
-export default function EveningRecap({ dayType, date, onComplete, initialFoods }: EveningRecapProps) {
+export default function EveningRecap({ dayType, date, onComplete, initialFoods, allLogs = [] }: EveningRecapProps) {
   const [step, setStep] = useState<Step>('select');
   const [selectedFoods, setSelectedFoods] = useState<string[]>(initialFoods ?? []);
   const [customFoods, setCustomFoods] = useState<string[]>([]);
@@ -168,6 +169,20 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
   // Modal state
   const [modalFood, setModalFood] = useState<string | null>(null);
   const [modalClassification, setModalClassification] = useState<FoodClassification | null>(null);
+
+  // Compute frequent foods from history
+  const frequentFoods = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const log of allLogs) {
+      for (const food of log.selectedFoods) {
+        counts.set(food, (counts.get(food) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([food, count]) => ({ food, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }, [allLogs]);
 
   const handleToggle = (food: string) => {
     setSelectedFoods((prev) =>
@@ -293,7 +308,7 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
           </h2>
 
           <FoodGrid
-            foodRules={FOOD_RULES}
+            frequentFoods={frequentFoods}
             selectedFoods={selectedFoods}
             onToggle={handleToggle}
           />

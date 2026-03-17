@@ -91,6 +91,51 @@ export default function JourneyBanner({ allLogs }: JourneyBannerProps) {
     trendText = 'Costante — stai mantenendo un buon ritmo';
   }
 
+  // Milestone detection
+  let milestone: string | null = null;
+  if (logsWithScore.length > 0) {
+    // Count consecutive days with score >= 3 (streak from logs)
+    const sortedDates = logsWithScore
+      .filter((l) => l.score >= 3)
+      .map((l) => l.date)
+      .sort()
+      .reverse();
+    let streakDays = 0;
+    const checkDate = new Date(todayStr);
+    for (const dateStr of sortedDates) {
+      const expected = checkDate.toISOString().split('T')[0];
+      if (dateStr === expected) {
+        streakDays++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Phase 2 entry
+    if (phase === 2 && weekInPhase === 1 && dayInWeek <= 2) {
+      milestone = '🎉 Sei entrato in Fase 2 — il tuo impegno ha dato i suoi frutti!';
+    }
+    // Perfect week (last 7 logs all >= 4)
+    else if (recentLogs.length >= 5 && recentLogs.every((l) => l.score >= 4)) {
+      milestone = '✨ Settimana eccellente — stai facendo un lavoro straordinario';
+    }
+    // Streak milestones
+    else if (streakDays >= 21) {
+      milestone = '🌟 21 giorni consecutivi — la costanza è la tua forza';
+    } else if (streakDays >= 14) {
+      milestone = '💪 14 giorni consecutivi — hai costruito un\'abitudine solida';
+    } else if (streakDays >= 7) {
+      milestone = '🌱 7 giorni consecutivi — la prima settimana è sempre la più importante';
+    } else if (streakDays >= 3) {
+      milestone = '👏 3 giorni di fila con buoni risultati — continua così';
+    }
+    // Score improving
+    else if (recentLogs.length >= 3 && previousLogs.length >= 3 && recentAvg >= 4 && previousAvg < 4) {
+      milestone = '📈 La tua aderenza sta migliorando sensibilmente';
+    }
+  }
+
   const scoreColor =
     avgScore >= 4
       ? 'var(--color-sage)'
@@ -148,6 +193,15 @@ export default function JourneyBanner({ allLogs }: JourneyBannerProps) {
       <p className="text-xs text-[var(--color-text-light)] leading-relaxed">
         {trendText}
       </p>
+
+      {/* Milestone */}
+      {milestone && (
+        <div className="rounded-xl bg-[var(--color-sage-light)] px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-sage-dark)] leading-relaxed">
+            {milestone}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

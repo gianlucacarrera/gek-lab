@@ -1,22 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import type { FoodRule } from '@/lib/types';
-
-type Category = FoodRule['category'];
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  proteine: 'Proteine',
-  carboidrati: 'Carboidrati',
-  verdure: 'Verdure',
-  grassi: 'Grassi',
-  altro: 'Altro',
-};
-
-const CATEGORY_ORDER: Category[] = ['proteine', 'carboidrati', 'verdure', 'grassi', 'altro'];
+import { FOOD_RULES } from '@/data/foodRules';
+import { getCachedClassification } from '@/lib/storage';
 
 interface FoodGridProps {
-  foodRules: FoodRule[];
+  frequentFoods: Array<{ food: string; count: number }>;
   selectedFoods: string[];
   onToggle: (food: string) => void;
 }
@@ -29,67 +18,12 @@ function CheckIcon() {
   );
 }
 
-export default function FoodGrid({ foodRules, selectedFoods, onToggle }: FoodGridProps) {
-  const [activeCategory, setActiveCategory] = useState<Category>('proteine');
-
-  const foodsByCategory = CATEGORY_ORDER.reduce<Record<Category, FoodRule[]>>((acc, cat) => {
-    acc[cat] = foodRules.filter((r) => r.category === cat);
-    return acc;
-  }, {} as Record<Category, FoodRule[]>);
-
-  // Only show categories that have foods
-  const availableCategories = CATEGORY_ORDER.filter((cat) => foodsByCategory[cat].length > 0);
-
-  return (
-    <div className="space-y-4">
-      {/* Category tabs — pill strip */}
-      <div className="flex gap-1 rounded-full bg-[var(--color-cream-dark)] p-1">
-        {availableCategories.map((cat) => {
-          const isActive = cat === activeCategory;
-          return (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-white text-[var(--color-text)] shadow-sm'
-                  : 'text-[var(--color-text-lighter)]'
-              }`}
-            >
-              {CATEGORY_LABELS[cat]}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Food chips */}
-      <div className="flex flex-wrap gap-2">
-        {foodsByCategory[activeCategory]?.map((rule) => {
-          const isSelected = selectedFoods.includes(rule.food);
-          const statusStyles = getStatusStyles(rule.status, isSelected);
-
-          return (
-            <button
-              key={rule.food}
-              onClick={() => onToggle(rule.food)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 ${statusStyles}`}
-            >
-              {isSelected && <CheckIcon />}
-              <span className={rule.status === 'excluded' ? 'line-through' : ''}>
-                {rule.food}
-              </span>
-              {rule.status === 'limited' && (
-                <span className="text-[10px] opacity-70">limitato</span>
-              )}
-              {rule.status === 'excluded' && (
-                <span className="text-[10px] opacity-70">da evitare</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+function getFoodStatus(food: string): FoodRule['status'] {
+  const rule = FOOD_RULES.find((r) => r.food === food);
+  if (rule) return rule.status;
+  const cached = getCachedClassification(food);
+  if (cached) return cached.status;
+  return 'allowed';
 }
 
 function getStatusStyles(status: FoodRule['status'], isSelected: boolean): string {
@@ -109,4 +43,50 @@ function getStatusStyles(status: FoodRule['status'], isSelected: boolean): strin
         isSelected ? 'ring-[var(--color-text-lighter)]' : ''
       } ${ringClass}`;
   }
+}
+
+export default function FoodGrid({ frequentFoods, selectedFoods, onToggle }: FoodGridProps) {
+  if (frequentFoods.length === 0) {
+    return (
+      <div className="py-4 text-center">
+        <p className="text-sm text-[var(--color-text-lighter)] leading-relaxed">
+          Inizia a registrare i tuoi pasti con il campo qui sotto.
+          <br />
+          Le tue scelte più frequenti appariranno qui.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-[var(--color-text-lighter)]">I tuoi alimenti più frequenti</p>
+      <div className="flex flex-wrap gap-2">
+        {frequentFoods.map(({ food }) => {
+          const isSelected = selectedFoods.includes(food);
+          const status = getFoodStatus(food);
+          const statusStyles = getStatusStyles(status, isSelected);
+
+          return (
+            <button
+              key={food}
+              onClick={() => onToggle(food)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 ${statusStyles}`}
+            >
+              {isSelected && <CheckIcon />}
+              <span className={status === 'excluded' ? 'line-through' : ''}>
+                {food}
+              </span>
+              {status === 'limited' && (
+                <span className="text-[10px] opacity-70">limitato</span>
+              )}
+              {status === 'excluded' && (
+                <span className="text-[10px] opacity-70">da evitare</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
