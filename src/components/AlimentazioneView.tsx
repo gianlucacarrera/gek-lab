@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getDayType } from '@/lib/dayTypes';
-import { getDailyLog, getStreak, getAllDailyLogs, getDietStartDate, setDietStartDate } from '@/lib/storage';
+import { getDailyLog, getStreak, getAllDailyLogs, getDietStartDate, setDietStartDate, saveDailyLog, updateStreak, getCachedClassification } from '@/lib/storage';
+import { FOOD_RULES } from '@/data/foodRules';
+import { calculateScore } from '@/lib/scoringEngine';
 import { setRotationStartDate } from '@/data/constants';
 import type { DailyLog, StreakData } from '@/lib/types';
 import JourneyBanner from '@/components/alimentazione/JourneyBanner';
@@ -121,6 +123,59 @@ function AlimentazioneActive({
     }
   }, [todayLog]);
 
+  const handleRemoveFood = useCallback(async (foodToRemove: string) => {
+    if (!todayLog) return;
+
+    const updatedFoods = todayLog.selectedFoods.filter((f) => f !== foodToRemove);
+
+    // Build classifications for custom foods from cache
+    const customClassifications: Record<string, { status: 'excluded' | 'limited' | 'allowed'; groups: string[]; reason: string }> = {};
+    for (const food of updatedFoods) {
+      if (!FOOD_RULES.find((r) => r.food === food)) {
+        const cached = getCachedClassification(food);
+        if (cached) customClassifications[food] = cached;
+      }
+    }
+
+    const newScore = calculateScore(updatedFoods, FOOD_RULES, dayType, customClassifications);
+
+    // Re-run AI comment
+    const foodStatuses = updatedFoods.map((food) => {
+      const rule = FOOD_RULES.find((r) => r.food === food);
+      const customClass = customClassifications[food];
+      return { food, status: rule?.status ?? customClass?.status ?? 'allowed' };
+    });
+
+    let comment = todayLog.aiComment;
+    try {
+      const res = await fetch('/api/alimentazione', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dayType: { id: dayType.id, label: dayType.label, avoidList: dayType.avoidList, severityWeight: dayType.severityWeight },
+          selectedFoods: foodStatuses,
+          score: newScore,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        comment = data.comment || comment;
+      }
+    } catch {
+      // keep existing comment
+    }
+
+    saveDailyLog({
+      date: todayStr,
+      dayTypeId: dayType.id,
+      selectedFoods: updatedFoods,
+      score: newScore,
+      aiComment: comment,
+    });
+    updateStreak(todayStr, newScore);
+    onRefresh();
+  }, [todayLog, dayType, todayStr, onRefresh]);
+
   return (
     <div className="min-h-screen bg-[var(--color-cream)] pb-24">
       {/* Header */}
@@ -151,6 +206,7 @@ function AlimentazioneActive({
             yesterdayScore={yesterdayLog?.score ?? null}
             tomorrowDayType={tomorrowDayType}
             onEdit={handleEdit}
+            onRemoveFood={handleRemoveFood}
           />
         ) : (
           /* No log yet — CTA */

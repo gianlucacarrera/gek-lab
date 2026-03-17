@@ -10,6 +10,7 @@ interface TodayResultProps {
   yesterdayScore: number | null;
   tomorrowDayType: DayTypeDefinition;
   onEdit: () => void;
+  onRemoveFood: (food: string) => void;
 }
 
 function getScoreColor(score: number): string {
@@ -107,7 +108,7 @@ function getStatusLabel(status: string) {
   }
 }
 
-export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, onEdit }: TodayResultProps) {
+export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, onEdit, onRemoveFood }: TodayResultProps) {
   const foodStatuses = useMemo(
     () => todayLog.selectedFoods.map((food) => ({ food, status: getFoodStatus(food) })),
     [todayLog.selectedFoods]
@@ -161,6 +162,15 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getStatusBadgeStyle(status)}`}>
                   {getStatusLabel(status)}
                 </span>
+                <button
+                  onClick={() => onRemoveFood(food)}
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[var(--color-text-lighter)] hover:text-[var(--color-terracotta)] hover:bg-[var(--color-terracotta-bg)] transition-colors duration-150 flex-shrink-0"
+                  aria-label={`Rimuovi ${food}`}
+                >
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                    <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
