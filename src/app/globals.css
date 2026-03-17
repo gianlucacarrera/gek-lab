@@ -1,1 +1,112 @@
 @import "tailwindcss";
+
+@theme {
+  --color-cream: #FFF8F0;
+  --color-cream-dark: #F5EDE3;
+  --color-terracotta: #C4663A;
+  --color-terracotta-light: #E8956A;
+  --color-terracotta-bg: #FFF0E8;
+  --color-sage: #6B9F71;
+  --color-sage-light: #E8F5E9;
+  --color-sage-dark: #4A7A4F;
+  --color-amber: #D4A03C;
+  --color-amber-light: #FFF3D0;
+  --color-amber-bg: #FFFAED;
+  --color-text: #3D3530;
+  --color-text-light: #8A7E76;
+  --color-text-lighter: #B5AAA2;
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-cream);
+    color: var(--color-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(61, 53, 48, 0.06), 0 4px 12px rgba(61, 53, 48, 0.04);
+    padding: 1.25rem;
+  }
+
+  .gradient-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--color-sage), var(--color-amber), var(--color-terracotta));
+  }
+
+  .btn-primary {
+    background-color: var(--color-terracotta);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-primary:hover {
+    background-color: #B5582F;
+    transform: translateY(-1px);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 1.5rem 1.5rem 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .tooltip-card {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    max-width: 280px;
+    z-index: 40;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

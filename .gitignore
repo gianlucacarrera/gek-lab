@@ -18,7 +18,20 @@ npm-debug.log*
 .vscode/
 .idea/
 
+# Claude Code local settings (may contain API keys)
+.claude/settings.local.json
+
 # misc
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+
+# assets not for repo
+blood panel/
+screenshot-*.png
+snapshot-*.txt
+strategy/
+scripts/
+~$*
