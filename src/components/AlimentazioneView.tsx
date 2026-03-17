@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getDayType } from '@/lib/dayTypes';
-import { getDailyLog, getStreak, getAllDailyLogs } from '@/lib/storage';
+import { getDailyLog, getStreak, getAllDailyLogs, getDietStartDate, setDietStartDate } from '@/lib/storage';
+import { setRotationStartDate } from '@/data/constants';
 import type { DailyLog, StreakData } from '@/lib/types';
 import JourneyBanner from '@/components/alimentazione/JourneyBanner';
 import TodayCard from '@/components/alimentazione/TodayCard';
@@ -10,7 +11,78 @@ import EveningRecap from '@/components/alimentazione/EveningRecap';
 import TodayResult from '@/components/alimentazione/TodayResult';
 import ScoreCalendar from '@/components/alimentazione/ScoreCalendar';
 
+/* ─── Diet Start Onboarding ────────────────────────────────────────── */
+function DietStartPrompt({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="min-h-screen bg-[var(--color-cream)] pb-24">
+      <div className="px-4 pt-12 flex flex-col items-center text-center space-y-6">
+        <span className="text-5xl">🌱</span>
+        <h1 className="text-xl font-bold text-[var(--color-text)]">
+          Inizia il tuo percorso
+        </h1>
+        <p className="text-sm text-[var(--color-text-light)] leading-relaxed max-w-xs">
+          La dieta a rotazione dura 16 settimane, divise in due fasi da 8.
+          Ogni giorno sapremo dirti cosa evitare e come stai andando.
+        </p>
+        <div className="w-full max-w-xs space-y-3 pt-2">
+          <button
+            onClick={onStart}
+            className="btn-primary w-full justify-center py-4"
+          >
+            Inizia oggi
+          </button>
+          <p className="text-xs text-[var(--color-text-lighter)]">
+            Potrai sempre ripristinare la data di inizio dalle impostazioni.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main View ────────────────────────────────────────────────────── */
 export default function AlimentazioneView() {
+  const [dietStarted, setDietStarted] = useState<boolean | null>(null); // null = loading
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Initialize diet start date from storage
+  useEffect(() => {
+    const stored = getDietStartDate();
+    if (stored) {
+      setRotationStartDate(stored);
+      setDietStarted(true);
+    } else {
+      setDietStarted(false);
+    }
+  }, []);
+
+  const handleStartDiet = useCallback(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setDietStartDate(todayStr);
+    setRotationStartDate(todayStr);
+    setDietStarted(true);
+  }, []);
+
+  // Loading state
+  if (dietStarted === null) return null;
+
+  // Onboarding: diet not started yet
+  if (!dietStarted) {
+    return <DietStartPrompt onStart={handleStartDiet} />;
+  }
+
+  // Diet is active — show the full view
+  return <AlimentazioneActive refreshKey={refreshKey} onRefresh={() => setRefreshKey((k) => k + 1)} />;
+}
+
+/* ─── Active Diet View ─────────────────────────────────────────────── */
+function AlimentazioneActive({
+  refreshKey,
+  onRefresh,
+}: {
+  refreshKey: number;
+  onRefresh: () => void;
+}) {
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
   const dayType = useMemo(() => getDayType(today), [today]);
@@ -25,7 +97,6 @@ export default function AlimentazioneView() {
   const [streak, setStreak] = useState<StreakData>({ count: 0, lastDate: '' });
   const [allLogs, setAllLogs] = useState<DailyLog[]>([]);
   const [showFoodInput, setShowFoodInput] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setTodayLog(getDailyLog(todayStr));
@@ -37,9 +108,9 @@ export default function AlimentazioneView() {
   }, [todayStr, today, refreshKey]);
 
   const handleRecapComplete = useCallback(() => {
-    setRefreshKey((k) => k + 1);
+    onRefresh();
     setShowFoodInput(false);
-  }, []);
+  }, [onRefresh]);
 
   return (
     <div className="min-h-screen bg-[var(--color-cream)] pb-24">
@@ -57,21 +128,18 @@ export default function AlimentazioneView() {
 
         {/* 3. Food Input / Result */}
         {todayLog ? (
-          /* Already logged today — show result */
           <TodayResult
             todayLog={todayLog}
             yesterdayScore={yesterdayLog?.score ?? null}
             tomorrowDayType={tomorrowDayType}
           />
         ) : showFoodInput ? (
-          /* Food input mode */
           <EveningRecap
             dayType={dayType}
             date={todayStr}
             onComplete={handleRecapComplete}
           />
         ) : (
-          /* CTA to start logging */
           <button
             onClick={() => setShowFoodInput(true)}
             className="btn-primary w-full justify-center py-4"

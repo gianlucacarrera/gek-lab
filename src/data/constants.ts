@@ -440,11 +440,24 @@ export const SUPPLEMENTS: Supplement[] = [
 ];
 
 // ─── Rotation Schedule Logic ───────────────────────────────────────
-const ROTATION_START = new Date('2026-02-27');
+// Default start date (report date). Overridden by user's chosen start date.
+const DEFAULT_ROTATION_START = '2026-02-27';
+
+let _rotationStart: Date | null = null;
+
+export function setRotationStartDate(isoDate: string): void {
+  _rotationStart = new Date(isoDate + 'T00:00:00');
+}
+
+export function getRotationStartDate(): Date {
+  return _rotationStart ?? new Date(DEFAULT_ROTATION_START);
+}
 
 export function getRotationPhase(date: Date): RotationPhase {
-  const diffMs = date.getTime() - ROTATION_START.getTime();
+  const start = getRotationStartDate();
+  const diffMs = date.getTime() - start.getTime();
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  if (diffWeeks < 0) return 1; // before start = treat as phase 1
   if (diffWeeks < 8) return 1;
   if (diffWeeks < 16) return 2;
   return 'maintenance';

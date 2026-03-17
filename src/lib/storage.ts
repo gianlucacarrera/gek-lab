@@ -7,6 +7,7 @@ const KEYS = {
   WEEKLY_NOTES: 'gek_weekly_notes',
   SUGAR_TRACKER: 'gek_sugar_tracker',
   CHECK_INS: 'gek_check_ins',
+  DIET_START: 'gek_diet_start',
 } as const;
 
 function read<T>(key: string, fallback: T): T {
@@ -98,6 +99,15 @@ export function getWeekLogs(endDate: string): (DailyLog | null)[] {
   }
 
   return result;
+}
+
+// Diet start date
+export function getDietStartDate(): string | null {
+  return read(KEYS.DIET_START, null);
+}
+
+export function setDietStartDate(date: string): void {
+  write(KEYS.DIET_START, date);
 }
 
 // All logs (for computing averages / calendar)

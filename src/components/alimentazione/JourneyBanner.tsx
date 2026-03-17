@@ -1,14 +1,12 @@
 'use client';
 
-import { getRotationPhase } from '@/data/constants';
+import { getRotationPhase, getRotationStartDate } from '@/data/constants';
 import type { DailyLog } from '@/lib/types';
 import type { RotationPhase } from '@/types/app';
 
 interface JourneyBannerProps {
   allLogs: DailyLog[];
 }
-
-const ROTATION_START = new Date('2026-02-27');
 
 function getPhaseLabel(phase: RotationPhase): string {
   if (phase === 1) return 'Fase 1';
@@ -31,8 +29,9 @@ function getPhaseStartWeek(phase: RotationPhase): number {
 export default function JourneyBanner({ allLogs }: JourneyBannerProps) {
   const today = new Date();
   const phase = getRotationPhase(today);
+  const rotationStart = getRotationStartDate();
 
-  const diffMs = today.getTime() - ROTATION_START.getTime();
+  const diffMs = today.getTime() - rotationStart.getTime();
   const totalDaysElapsed = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   const totalWeeksElapsed = Math.floor(totalDaysElapsed / 7);
 
