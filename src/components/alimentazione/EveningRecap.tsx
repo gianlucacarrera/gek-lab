@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import type { DayTypeDefinition } from '@/lib/types';
 import { FOOD_RULES } from '@/data/foodRules';
-import { calculateScore } from '@/lib/scoringEngine';
+import { calculateScore, classifyCustomFood } from '@/lib/scoringEngine';
 import { saveDailyLog, updateStreak } from '@/lib/storage';
+import type { FoodClassification } from '@/lib/storage';
 import FoodGrid from './FoodGrid';
 
 interface EveningRecapProps {
@@ -52,12 +53,31 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
   const handleSubmit = async () => {
     setStep('loading');
 
-    const computed = calculateScore(selectedFoods, FOOD_RULES, dayType);
+    // Classify custom foods via API (cached)
+    const customClassifications: Record<string, FoodClassification> = {};
+    if (customFoods.length > 0) {
+      const results = await Promise.all(
+        customFoods.map(async (food) => {
+          const classification = await classifyCustomFood(food);
+          return { food, classification };
+        })
+      );
+      for (const { food, classification } of results) {
+        customClassifications[food] = classification;
+      }
+    }
+
+    const computed = calculateScore(selectedFoods, FOOD_RULES, dayType, customClassifications);
 
     // Build food status map for the API
     const foodStatuses = selectedFoods.map((food) => {
       const rule = FOOD_RULES.find((r) => r.food === food);
-      return { food, status: rule?.status ?? 'allowed' };
+      const customClass = customClassifications[food];
+      return {
+        food,
+        status: rule?.status ?? customClass?.status ?? 'allowed',
+        reason: customClass?.reason,
+      };
     });
 
     let comment = 'Buon lavoro oggi. Continua cosi!';

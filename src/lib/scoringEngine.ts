@@ -1,11 +1,11 @@
 import type { FoodRule, DayTypeDefinition } from './types';
+import { getCachedClassification, cacheFoodClassification } from './storage';
+import type { FoodClassification } from './storage';
 
 /**
- * Keywords that indicate a custom food belongs to a restricted group.
- * Grouped by the food group they map to (all treated as 'excluded').
+ * Keyword fallback for offline/error classification.
  */
 const EXCLUDED_KEYWORDS: string[] = [
-  // Frumento e Glutine
   'frumento', 'grano', 'glutine', 'pasta', 'pane', 'pizza', 'focaccia',
   'lasagne', 'lasagna', 'gnocchi', 'ravioli', 'tortellini', 'tagliatelle',
   'spaghetti', 'penne', 'fusilli', 'rigatoni', 'fettuccine', 'cannelloni',
@@ -16,14 +16,12 @@ const EXCLUDED_KEYWORDS: string[] = [
   'torta', 'biscotti', 'merendina', 'dolce', 'tiramisù', 'tiramisu',
   'piadina', 'wrap', 'burrito', 'panzerotto', 'calzone',
   'impanato', 'impanatura', 'cotoletta', 'milanese',
-  // Lieviti e Fermentati
   'formaggio', 'parmigiano', 'grana', 'pecorino', 'gorgonzola', 'mozzarella',
   'ricotta', 'mascarpone', 'yogurt', 'kefir',
   'tofu', 'tempeh', 'miso', 'soia',
   'fungo', 'funghi',
   'aceto', 'maionese',
   'vino', 'birra', 'prosecco', 'champagne', 'spumante',
-  // Nichel Solfato
   'spinaci', 'pomodoro', 'sugo', 'ragù', 'ragu', 'asparagi',
   'cioccolato', 'cacao', 'nutella',
   'lenticchie', 'avena', 'mais', 'polenta',
@@ -38,36 +36,84 @@ const LIMITED_KEYWORDS: string[] = [
   'fritto', 'frittura', 'fritti',
 ];
 
-/**
- * Classify a custom (free-text) food against restricted keywords.
- * Returns 'excluded', 'limited', or 'allowed'.
- */
-export function classifyCustomFood(food: string): FoodRule['status'] {
+function classifyByKeywords(food: string): FoodClassification {
   const lower = food.toLowerCase();
 
   for (const keyword of EXCLUDED_KEYWORDS) {
-    if (lower.includes(keyword)) return 'excluded';
+    if (lower.includes(keyword)) {
+      return { status: 'excluded', groups: [], reason: `Contiene "${keyword}"` };
+    }
   }
 
   for (const keyword of LIMITED_KEYWORDS) {
-    if (lower.includes(keyword)) return 'limited';
+    if (lower.includes(keyword)) {
+      return { status: 'limited', groups: [], reason: `Contiene "${keyword}"` };
+    }
   }
 
-  return 'allowed';
+  return { status: 'allowed', groups: [], reason: '' };
 }
 
+/**
+ * Classify a custom food via API (with localStorage cache).
+ * Falls back to keyword matching on error.
+ */
+export async function classifyCustomFood(food: string): Promise<FoodClassification> {
+  // Check cache first
+  const cached = getCachedClassification(food);
+  if (cached) return cached;
+
+  // Call API
+  try {
+    const res = await fetch('/api/classify-food', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ food }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const classification: FoodClassification = {
+        status: data.status ?? 'allowed',
+        groups: data.groups ?? [],
+        reason: data.reason ?? '',
+      };
+      cacheFoodClassification(food, classification);
+      return classification;
+    }
+  } catch {
+    // fall through to keyword fallback
+  }
+
+  // Keyword fallback
+  const fallback = classifyByKeywords(food);
+  cacheFoodClassification(food, fallback);
+  return fallback;
+}
+
+/**
+ * Synchronous score calculation using pre-resolved classifications.
+ */
 export function calculateScore(
   selectedFoods: string[],
   foodRules: FoodRule[],
-  dayType: DayTypeDefinition
+  dayType: DayTypeDefinition,
+  customClassifications?: Record<string, FoodClassification>
 ): number {
   let score = 5;
 
   for (const foodName of selectedFoods) {
     const rule = foodRules.find(r => r.food === foodName);
 
-    // Use rule if it exists, otherwise classify custom food by keywords
-    const status = rule ? rule.status : classifyCustomFood(foodName);
+    let status: string;
+    if (rule) {
+      status = rule.status;
+    } else if (customClassifications?.[foodName]) {
+      status = customClassifications[foodName].status;
+    } else {
+      // Sync fallback — keyword match
+      status = classifyByKeywords(foodName).status;
+    }
 
     if (status === 'excluded') {
       score -= 1.5 * dayType.severityWeight;
@@ -76,7 +122,6 @@ export function calculateScore(
     }
   }
 
-  // Clamp to [1, 5] and round to nearest 0.5
   score = Math.max(1, Math.min(5, score));
   score = Math.round(score * 2) / 2;
 

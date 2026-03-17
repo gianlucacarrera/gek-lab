@@ -8,6 +8,7 @@ const KEYS = {
   SUGAR_TRACKER: 'gek_sugar_tracker',
   CHECK_INS: 'gek_check_ins',
   DIET_START: 'gek_diet_start',
+  FOOD_CACHE: 'gek_food_cache',
 } as const;
 
 function read<T>(key: string, fallback: T): T {
@@ -108,6 +109,28 @@ export function getDietStartDate(): string | null {
 
 export function setDietStartDate(date: string): void {
   write(KEYS.DIET_START, date);
+}
+
+// Food classification cache
+export interface FoodClassification {
+  status: 'excluded' | 'limited' | 'allowed';
+  groups: string[];
+  reason: string;
+}
+
+export function getFoodCache(): Record<string, FoodClassification> {
+  return read(KEYS.FOOD_CACHE, {});
+}
+
+export function getCachedClassification(food: string): FoodClassification | null {
+  const cache = getFoodCache();
+  return cache[food.toLowerCase()] ?? null;
+}
+
+export function cacheFoodClassification(food: string, classification: FoodClassification): void {
+  const cache = getFoodCache();
+  cache[food.toLowerCase()] = classification;
+  write(KEYS.FOOD_CACHE, cache);
 }
 
 // All logs (for computing averages / calendar)
