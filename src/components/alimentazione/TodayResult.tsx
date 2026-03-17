@@ -6,6 +6,7 @@ interface TodayResultProps {
   todayLog: DailyLog;
   yesterdayScore: number | null;
   tomorrowDayType: DayTypeDefinition;
+  onEdit: () => void;
 }
 
 function getScoreColor(score: number): string {
@@ -76,7 +77,7 @@ function getTomorrowBadgeStyles(id: string) {
   }
 }
 
-export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType }: TodayResultProps) {
+export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, onEdit }: TodayResultProps) {
   return (
     <div className="space-y-4">
       {/* Today's score card */}
@@ -108,6 +109,28 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType 
             </p>
           </div>
         )}
+      </div>
+
+      {/* Logged foods + edit */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+        {todayLog.selectedFoods.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {todayLog.selectedFoods.map((food) => (
+              <span
+                key={food}
+                className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-cream)] text-[var(--color-text-light)]"
+              >
+                {food}
+              </span>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={onEdit}
+          className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--color-cream-dark)] text-sm font-medium text-[var(--color-text-light)] hover:border-[var(--color-terracotta-light)] hover:text-[var(--color-terracotta)] transition-colors duration-200"
+        >
+          + Modifica i pasti
+        </button>
       </div>
 
       {/* Tomorrow bridge */}

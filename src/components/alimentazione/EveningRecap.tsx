@@ -11,13 +11,14 @@ interface EveningRecapProps {
   dayType: DayTypeDefinition;
   date: string;
   onComplete: () => void;
+  initialFoods?: string[];
 }
 
 type Step = 'select' | 'loading';
 
-export default function EveningRecap({ dayType, date, onComplete }: EveningRecapProps) {
+export default function EveningRecap({ dayType, date, onComplete, initialFoods }: EveningRecapProps) {
   const [step, setStep] = useState<Step>('select');
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
+  const [selectedFoods, setSelectedFoods] = useState<string[]>(initialFoods ?? []);
   const [note, setNote] = useState('');
 
   const handleToggle = (food: string) => {

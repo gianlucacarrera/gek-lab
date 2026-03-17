@@ -97,6 +97,7 @@ function AlimentazioneActive({
   const [streak, setStreak] = useState<StreakData>({ count: 0, lastDate: '' });
   const [allLogs, setAllLogs] = useState<DailyLog[]>([]);
   const [showFoodInput, setShowFoodInput] = useState(false);
+  const [editingFoods, setEditingFoods] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
     setTodayLog(getDailyLog(todayStr));
@@ -110,7 +111,15 @@ function AlimentazioneActive({
   const handleRecapComplete = useCallback(() => {
     onRefresh();
     setShowFoodInput(false);
+    setEditingFoods(undefined);
   }, [onRefresh]);
+
+  const handleEdit = useCallback(() => {
+    if (todayLog) {
+      setEditingFoods(todayLog.selectedFoods);
+      setShowFoodInput(true);
+    }
+  }, [todayLog]);
 
   return (
     <div className="min-h-screen bg-[var(--color-cream)] pb-24">
@@ -127,19 +136,24 @@ function AlimentazioneActive({
         <TodayCard dayType={dayType} />
 
         {/* 3. Food Input / Result */}
-        {todayLog ? (
-          <TodayResult
-            todayLog={todayLog}
-            yesterdayScore={yesterdayLog?.score ?? null}
-            tomorrowDayType={tomorrowDayType}
-          />
-        ) : showFoodInput ? (
+        {showFoodInput ? (
+          /* Food input mode (new or edit) */
           <EveningRecap
             dayType={dayType}
             date={todayStr}
             onComplete={handleRecapComplete}
+            initialFoods={editingFoods}
+          />
+        ) : todayLog ? (
+          /* Already logged — show result with edit option */
+          <TodayResult
+            todayLog={todayLog}
+            yesterdayScore={yesterdayLog?.score ?? null}
+            tomorrowDayType={tomorrowDayType}
+            onEdit={handleEdit}
           />
         ) : (
+          /* No log yet — CTA */
           <button
             onClick={() => setShowFoodInput(true)}
             className="btn-primary w-full justify-center py-4"
