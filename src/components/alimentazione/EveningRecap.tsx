@@ -274,17 +274,7 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
     onComplete();
   };
 
-  // Classifying spinner (brief, while Haiku responds)
-  if (step === 'classifying') {
-    return (
-      <div className="py-8 flex flex-col items-center space-y-3">
-        <div className="w-8 h-8 border-2 border-[var(--color-cream-dark)] border-t-[var(--color-terracotta)] rounded-full animate-spin" />
-        <p className="text-sm text-[var(--color-text-lighter)]">Analizzo l&apos;alimento...</p>
-      </div>
-    );
-  }
-
-  // Saving spinner
+  // Saving spinner — full replacement
   if (step === 'saving') {
     return (
       <div className="py-12 flex flex-col items-center space-y-4">
@@ -318,17 +308,21 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
                 onChange={(e) => setCustomInput(e.target.value)}
                 onKeyDown={handleCustomKeyDown}
                 placeholder="es. lasagne, tiramisù..."
+                disabled={step === 'classifying'}
                 className="flex-1 rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] px-3 py-2
                            text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-lighter)]
-                           focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200"
+                           focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200
+                           disabled:opacity-50"
               />
               <button
                 onClick={handleAddCustom}
-                disabled={!customInput.trim()}
+                disabled={!customInput.trim() || step === 'classifying'}
                 className="px-3 py-2 rounded-xl bg-[var(--color-terracotta)] text-white text-sm font-semibold
                            transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
               >
-                +
+                {step === 'classifying' ? (
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />
+                ) : '+'}
               </button>
             </div>
             {customFoods.length > 0 && (

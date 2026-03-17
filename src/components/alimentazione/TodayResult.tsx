@@ -1,6 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { DailyLog, DayTypeDefinition } from '@/lib/types';
+import { FOOD_RULES } from '@/data/foodRules';
+import { getCachedClassification } from '@/lib/storage';
 
 interface TodayResultProps {
   todayLog: DailyLog;
@@ -77,7 +80,39 @@ function getTomorrowBadgeStyles(id: string) {
   }
 }
 
+function getFoodStatus(food: string): 'excluded' | 'limited' | 'allowed' {
+  const rule = FOOD_RULES.find((r) => r.food === food);
+  if (rule) return rule.status;
+  const cached = getCachedClassification(food);
+  if (cached) return cached.status;
+  return 'allowed';
+}
+
+function getStatusBadgeStyle(status: string) {
+  switch (status) {
+    case 'excluded':
+      return 'bg-[var(--color-terracotta-bg)] text-[var(--color-terracotta)]';
+    case 'limited':
+      return 'bg-[var(--color-amber-light)] text-[var(--color-amber)]';
+    default:
+      return 'bg-[var(--color-sage-light)] text-[var(--color-sage-dark)]';
+  }
+}
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'excluded': return 'da evitare';
+    case 'limited': return 'limitato';
+    default: return 'ok';
+  }
+}
+
 export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType, onEdit }: TodayResultProps) {
+  const foodStatuses = useMemo(
+    () => todayLog.selectedFoods.map((food) => ({ food, status: getFoodStatus(food) })),
+    [todayLog.selectedFoods]
+  );
+
   return (
     <div className="space-y-4">
       {/* Today's score card */}
@@ -111,17 +146,26 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
         )}
       </div>
 
-      {/* Logged foods + edit */}
+      {/* Logged foods with badges + edit */}
       <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-        {todayLog.selectedFoods.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {todayLog.selectedFoods.map((food) => (
-              <span
-                key={food}
-                className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-cream)] text-[var(--color-text-light)]"
-              >
-                {food}
-              </span>
+        {foodStatuses.length > 0 && (
+          <div className="space-y-1.5">
+            {foodStatuses.map(({ food, status }) => (
+              <div key={food} className="flex items-center gap-2">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                    status === 'excluded'
+                      ? 'bg-[var(--color-terracotta)]'
+                      : status === 'limited'
+                        ? 'bg-[var(--color-amber)]'
+                        : 'bg-[var(--color-sage)]'
+                  }`}
+                />
+                <span className="text-sm text-[var(--color-text-light)] flex-1">{food}</span>
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getStatusBadgeStyle(status)}`}>
+                  {getStatusLabel(status)}
+                </span>
+              </div>
             ))}
           </div>
         )}
