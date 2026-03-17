@@ -54,16 +54,29 @@ function classifyByKeywords(food: string): FoodClassification {
   return { status: 'allowed', groups: [], reason: '' };
 }
 
+const STATUS_SEVERITY: Record<string, number> = { excluded: 2, limited: 1, allowed: 0 };
+
+/**
+ * Return the stricter of two classifications.
+ */
+function stricterOf(a: FoodClassification, b: FoodClassification): FoodClassification {
+  return (STATUS_SEVERITY[a.status] ?? 0) >= (STATUS_SEVERITY[b.status] ?? 0) ? a : b;
+}
+
 /**
  * Classify a custom food via API (with localStorage cache).
- * Falls back to keyword matching on error.
+ * Cross-checks against keyword list and always takes the stricter result.
  */
 export async function classifyCustomFood(food: string): Promise<FoodClassification> {
   // Check cache first
   const cached = getCachedClassification(food);
   if (cached) return cached;
 
+  // Keyword baseline — always computed as safety net
+  const keywordResult = classifyByKeywords(food);
+
   // Call API
+  let apiResult: FoodClassification | null = null;
   try {
     const res = await fetch('/api/classify-food', {
       method: 'POST',
@@ -73,22 +86,20 @@ export async function classifyCustomFood(food: string): Promise<FoodClassificati
 
     if (res.ok) {
       const data = await res.json();
-      const classification: FoodClassification = {
+      apiResult = {
         status: data.status ?? 'allowed',
         groups: data.groups ?? [],
         reason: data.reason ?? '',
       };
-      cacheFoodClassification(food, classification);
-      return classification;
     }
   } catch {
-    // fall through to keyword fallback
+    // API failed — keyword result is our only source
   }
 
-  // Keyword fallback
-  const fallback = classifyByKeywords(food);
-  cacheFoodClassification(food, fallback);
-  return fallback;
+  // Take the stricter of API and keyword results
+  const final = apiResult ? stricterOf(apiResult, keywordResult) : keywordResult;
+  cacheFoodClassification(food, final);
+  return final;
 }
 
 /**
