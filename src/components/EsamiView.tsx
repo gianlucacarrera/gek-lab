@@ -714,14 +714,14 @@ function GeneSection({
 }
 
 /* ─── Main Component ───────────────────────────────────────────────── */
-export default function EsamiView() {
+export default function EsamiView({ userName }: { userName?: string }) {
   return (
     <div className="min-h-screen bg-[var(--color-cream)] pb-24">
       {/* Header */}
       <div className="px-4 pt-6 pb-2">
         <h1 className="text-2xl font-bold text-[var(--color-text)]">I tuoi esami</h1>
         <p className="mt-1 text-sm text-[var(--color-text-light)]">
-          Ciao {PATIENT.firstName}, ecco il quadro completo dei tuoi risultati del{' '}
+          Ciao {userName || PATIENT.firstName}, ecco il quadro completo dei tuoi risultati del{' '}
           {PATIENT.reportDateFormatted}.
         </p>
       </div>

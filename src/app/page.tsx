@@ -81,7 +81,7 @@ export default function Page() {
         </button>
       </div>
 
-      {activeTab === 'esami' && <EsamiView />}
+      {activeTab === 'esami' && <EsamiView userName={userName} />}
       {activeTab === 'alimenti' && <AlimentiView />}
       {activeTab === 'alimentazione' && <AlimentazioneView />}
 
