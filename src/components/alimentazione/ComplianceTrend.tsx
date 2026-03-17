@@ -7,7 +7,7 @@ interface ComplianceTrendProps {
   allLogs: DailyLog[];
 }
 
-function getBarColor(score: number): string {
+function getPointColor(score: number): string {
   if (score >= 4) return 'var(--color-sage)';
   if (score >= 2.5) return 'var(--color-amber)';
   return 'var(--color-terracotta)';
@@ -18,7 +18,6 @@ export default function ComplianceTrend({ allLogs }: ComplianceTrendProps) {
     const today = new Date();
     const days: Array<{ date: string; score: number | null; label: string }> = [];
 
-    // Build log lookup
     const logByDate: Record<string, number> = {};
     for (const log of allLogs) {
       logByDate[log.date] = log.score;
@@ -29,7 +28,6 @@ export default function ComplianceTrend({ allLogs }: ComplianceTrendProps) {
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const dayNum = d.getDate();
-      // Show label every 7 days or on first/last
       const showLabel = i === 29 || i === 0 || i % 7 === 0;
       days.push({
         date: dateStr,
@@ -42,16 +40,32 @@ export default function ComplianceTrend({ allLogs }: ComplianceTrendProps) {
   }, [allLogs]);
 
   // Only show if there's at least one log
-  const hasData = chartData.some((d) => d.score !== null);
-  if (!hasData) return null;
+  const scoredDays = chartData.filter((d) => d.score !== null);
+  if (scoredDays.length === 0) return null;
 
   const width = 320;
-  const height = 120;
-  const padding = { top: 10, bottom: 24, left: 4, right: 4 };
+  const height = 100;
+  const padding = { top: 12, bottom: 24, left: 8, right: 8 };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
-  const barW = chartW / 30;
-  const gap = 1.5;
+
+  // Build points for scored days only
+  const points = chartData
+    .map((day, i) => {
+      if (day.score === null) return null;
+      const x = padding.left + (i / 29) * chartW;
+      const y = padding.top + chartH - (day.score / 5) * chartH;
+      return { x, y, score: day.score, isToday: i === 29 };
+    })
+    .filter(Boolean) as Array<{ x: number; y: number; score: number; isToday: boolean }>;
+
+  // Build the line path
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+  // Build gradient fill path (area under the line)
+  const areaPath = points.length > 1
+    ? `${linePath} L ${points[points.length - 1].x} ${padding.top + chartH} L ${points[0].x} ${padding.top + chartH} Z`
+    : '';
 
   return (
     <div className="card space-y-2">
@@ -59,82 +73,50 @@ export default function ComplianceTrend({ allLogs }: ComplianceTrendProps) {
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
         {/* Threshold lines */}
         <line
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={padding.top + chartH * (1 - 4 / 5)}
-          y2={padding.top + chartH * (1 - 4 / 5)}
-          stroke="var(--color-sage)"
-          strokeWidth="0.5"
-          strokeDasharray="3,3"
-          opacity="0.4"
+          x1={padding.left} x2={width - padding.right}
+          y1={padding.top + chartH * (1 - 4 / 5)} y2={padding.top + chartH * (1 - 4 / 5)}
+          stroke="var(--color-sage)" strokeWidth="0.5" strokeDasharray="3,3" opacity="0.3"
         />
         <line
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={padding.top + chartH * (1 - 2.5 / 5)}
-          y2={padding.top + chartH * (1 - 2.5 / 5)}
-          stroke="var(--color-amber)"
-          strokeWidth="0.5"
-          strokeDasharray="3,3"
-          opacity="0.4"
+          x1={padding.left} x2={width - padding.right}
+          y1={padding.top + chartH * (1 - 2.5 / 5)} y2={padding.top + chartH * (1 - 2.5 / 5)}
+          stroke="var(--color-amber)" strokeWidth="0.5" strokeDasharray="3,3" opacity="0.3"
         />
 
-        {/* Bars */}
-        {chartData.map((day, i) => {
-          const x = padding.left + i * barW + gap / 2;
-          const w = barW - gap;
+        {/* Area fill */}
+        {areaPath && (
+          <path d={areaPath} fill="var(--color-sage)" opacity="0.08" />
+        )}
 
-          if (day.score === null) {
-            // Empty day — tiny gray stub
-            return (
-              <rect
-                key={day.date}
-                x={x}
-                y={padding.top + chartH - 2}
-                width={w}
-                height={2}
-                rx={1}
-                fill="var(--color-cream-dark)"
-              />
-            );
-          }
+        {/* Line */}
+        {points.length > 1 && (
+          <path
+            d={linePath}
+            fill="none"
+            stroke="var(--color-sage)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
 
-          const barH = Math.max(2, (day.score / 5) * chartH);
-          const y = padding.top + chartH - barH;
-          const isToday = i === 29;
-
-          return (
-            <g key={day.date}>
-              <rect
-                x={x}
-                y={y}
-                width={w}
-                height={barH}
-                rx={1.5}
-                fill={getBarColor(day.score)}
-                opacity={isToday ? 1 : 0.75}
-              />
-              {isToday && (
-                <rect
-                  x={x - 1}
-                  y={y - 1}
-                  width={w + 2}
-                  height={barH + 2}
-                  rx={2}
-                  fill="none"
-                  stroke="var(--color-terracotta)"
-                  strokeWidth="1"
-                  opacity="0.6"
-                />
-              )}
-            </g>
-          );
-        })}
+        {/* Points */}
+        {points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={p.isToday ? 4 : 2.5}
+            fill={getPointColor(p.score)}
+            stroke={p.isToday ? 'var(--color-terracotta)' : 'none'}
+            strokeWidth={p.isToday ? 1.5 : 0}
+          />
+        ))}
 
         {/* Date labels */}
         {chartData.map((day, i) => {
           if (!day.label) return null;
-          const x = padding.left + i * barW + barW / 2;
+          const x = padding.left + (i / 29) * chartW;
           return (
             <text
               key={`label-${day.date}`}

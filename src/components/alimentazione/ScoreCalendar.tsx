@@ -166,14 +166,12 @@ export default function ScoreCalendar({ allLogs, streak }: ScoreCalendarProps) {
                   isToday && !isSelected ? 'ring-1 ring-[var(--color-text-lighter)]' : ''
                 } ${bgColor}`}
               >
-                <span className={`text-xs ${isToday ? 'font-bold text-[var(--color-text)]' : 'text-[var(--color-text-light)]'}`}>
-                  {day}
-                </span>
-                {score !== undefined && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full absolute bottom-1"
-                    style={{ backgroundColor: dotColor }}
-                  />
+                {score !== undefined ? (
+                  <span className="text-xs font-semibold" style={{ color: dotColor }}>{score}</span>
+                ) : (
+                  <span className={`text-[10px] ${isToday ? 'font-bold text-[var(--color-text)]' : 'text-[var(--color-text-lighter)]'}`}>
+                    {day}
+                  </span>
                 )}
               </button>
             );
