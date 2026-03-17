@@ -1,13 +1,24 @@
 import type { DailyLog, StreakData } from './types';
 import type { CheckInResponse, SugarTrackerState } from '@/types/app';
 
-const KEYS = {
-  DAILY_LOGS: 'gek_daily_logs',
-  STREAK: 'gek_streak',
-  WEEKLY_NOTES: 'gek_weekly_notes',
-  SUGAR_TRACKER: 'gek_sugar_tracker',
-  CHECK_INS: 'gek_check_ins',
-  DIET_START: 'gek_diet_start',
+// Current user — set on login, used to scope all storage keys
+let _currentUserId: string | null = null;
+
+export function setCurrentUserId(userId: string | null): void {
+  _currentUserId = userId;
+}
+
+export function getCurrentUserId(): string | null {
+  return _currentUserId;
+}
+
+function userKey(base: string): string {
+  const uid = _currentUserId ?? 'anonymous';
+  return `gek_${uid}_${base}`;
+}
+
+// Food cache is shared across users (food classification doesn't change per user)
+const SHARED_KEYS = {
   FOOD_CACHE: 'gek_food_cache',
 } as const;
 
@@ -28,7 +39,7 @@ function write(key: string, value: unknown): void {
 
 // Daily logs
 export function getDailyLogs(): Record<string, DailyLog> {
-  return read(KEYS.DAILY_LOGS, {});
+  return read(userKey('daily_logs'), {});
 }
 
 export function getDailyLog(date: string): DailyLog | null {
@@ -39,12 +50,12 @@ export function getDailyLog(date: string): DailyLog | null {
 export function saveDailyLog(log: DailyLog): void {
   const logs = getDailyLogs();
   logs[log.date] = log;
-  write(KEYS.DAILY_LOGS, logs);
+  write(userKey('daily_logs'), logs);
 }
 
 // Streak
 export function getStreak(): StreakData {
-  return read(KEYS.STREAK, { count: 0, lastDate: '' });
+  return read(userKey('streak'), { count: 0, lastDate: '' });
 }
 
 export function updateStreak(date: string, score: number): StreakData {
@@ -71,19 +82,19 @@ export function updateStreak(date: string, score: number): StreakData {
     streak.lastDate = date;
   }
 
-  write(KEYS.STREAK, streak);
+  write(userKey('streak'), streak);
   return streak;
 }
 
 // Weekly notes
 export function getWeeklyNotes(): Record<string, string> {
-  return read(KEYS.WEEKLY_NOTES, {});
+  return read(userKey('weekly_notes'), {});
 }
 
 export function saveWeeklyNote(weekKey: string, note: string): void {
   const notes = getWeeklyNotes();
   notes[weekKey] = note;
-  write(KEYS.WEEKLY_NOTES, notes);
+  write(userKey('weekly_notes'), notes);
 }
 
 // Get the last 7 days of logs for weekly view
@@ -104,11 +115,11 @@ export function getWeekLogs(endDate: string): (DailyLog | null)[] {
 
 // Diet start date
 export function getDietStartDate(): string | null {
-  return read(KEYS.DIET_START, null);
+  return read(userKey('diet_start'), null);
 }
 
 export function setDietStartDate(date: string): void {
-  write(KEYS.DIET_START, date);
+  write(userKey('diet_start'), date);
 }
 
 // Food classification cache
@@ -119,7 +130,7 @@ export interface FoodClassification {
 }
 
 export function getFoodCache(): Record<string, FoodClassification> {
-  return read(KEYS.FOOD_CACHE, {});
+  return read(SHARED_KEYS.FOOD_CACHE, {});
 }
 
 export function getCachedClassification(food: string): FoodClassification | null {
@@ -130,7 +141,7 @@ export function getCachedClassification(food: string): FoodClassification | null
 export function cacheFoodClassification(food: string, classification: FoodClassification): void {
   const cache = getFoodCache();
   cache[food.toLowerCase()] = classification;
-  write(KEYS.FOOD_CACHE, cache);
+  write(SHARED_KEYS.FOOD_CACHE, cache);
 }
 
 // All logs (for computing averages / calendar)
@@ -147,7 +158,7 @@ export function getSugarTracker(): SugarTrackerState {
   monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
   const defaultStart = monday.toISOString().split('T')[0];
 
-  const state = read<SugarTrackerState>(KEYS.SUGAR_TRACKER, {
+  const state = read<SugarTrackerState>(userKey('sugar_tracker'), {
     weekStartDate: defaultStart,
     dailyTotals: {},
   });
@@ -156,7 +167,7 @@ export function getSugarTracker(): SugarTrackerState {
   if (state.weekStartDate !== defaultStart) {
     state.weekStartDate = defaultStart;
     state.dailyTotals = {};
-    write(KEYS.SUGAR_TRACKER, state);
+    write(userKey('sugar_tracker'), state);
   }
 
   return state;
@@ -165,14 +176,14 @@ export function getSugarTracker(): SugarTrackerState {
 export function addSugarUnits(dayIndex: number, units: number): SugarTrackerState {
   const state = getSugarTracker();
   state.dailyTotals[dayIndex] = (state.dailyTotals[dayIndex] ?? 0) + units;
-  write(KEYS.SUGAR_TRACKER, state);
+  write(userKey('sugar_tracker'), state);
   return state;
 }
 
 export function clearSugarDay(dayIndex: number): SugarTrackerState {
   const state = getSugarTracker();
   delete state.dailyTotals[dayIndex];
-  write(KEYS.SUGAR_TRACKER, state);
+  write(userKey('sugar_tracker'), state);
   return state;
 }
 
@@ -185,13 +196,13 @@ export function resetSugarWeek(): SugarTrackerState {
     weekStartDate: monday.toISOString().split('T')[0],
     dailyTotals: {},
   };
-  write(KEYS.SUGAR_TRACKER, state);
+  write(userKey('sugar_tracker'), state);
   return state;
 }
 
 // Weekly Check-In
 export function getCheckIns(): CheckInResponse[] {
-  return read(KEYS.CHECK_INS, []);
+  return read(userKey('check_ins'), []);
 }
 
 export function saveCheckIn(response: CheckInResponse): void {
@@ -203,5 +214,5 @@ export function saveCheckIn(response: CheckInResponse): void {
   } else {
     checkIns.push(response);
   }
-  write(KEYS.CHECK_INS, checkIns);
+  write(userKey('check_ins'), checkIns);
 }
