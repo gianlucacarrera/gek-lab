@@ -115,11 +115,11 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
 
   return (
     <div className="space-y-4">
-      {/* Today's score card */}
+      {/* Single "Punteggio di oggi" card: score + comment + food list */}
       <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--color-text)]">Il tuo punteggio di oggi</h3>
-          <span className="text-lg font-bold" style={{ color: getScoreColor(todayLog.score) }}>
+          <h3 className="text-sm font-semibold text-[var(--color-text)]">Punteggio di oggi</h3>
+          <span className="text-xl font-bold" style={{ color: getScoreColor(todayLog.score) }}>
             {todayLog.score}/5
           </span>
         </div>
@@ -135,21 +135,17 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
 
         {/* Yesterday comparison */}
         {yesterdayScore !== null && (
-          <div className="pt-2 border-t border-[var(--color-cream-dark)]">
-            <p className="text-xs text-[var(--color-text-lighter)]">
-              Ieri: {yesterdayScore}/5
-              {todayLog.score > yesterdayScore && ' — in miglioramento'}
-              {todayLog.score === yesterdayScore && ' — costante'}
-              {todayLog.score < yesterdayScore && ' — un passo indietro, domani si riparte'}
-            </p>
-          </div>
+          <p className="text-xs text-[var(--color-text-lighter)]">
+            Ieri: {yesterdayScore}/5
+            {todayLog.score > yesterdayScore && ' — in miglioramento'}
+            {todayLog.score === yesterdayScore && ' — costante'}
+            {todayLog.score < yesterdayScore && ' — un passo indietro, domani si riparte'}
+          </p>
         )}
-      </div>
 
-      {/* Logged foods with badges + edit */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+        {/* Food list with badges */}
         {foodStatuses.length > 0 && (
-          <div className="space-y-1.5">
+          <div className="pt-3 border-t border-[var(--color-cream-dark)] space-y-1.5">
             {foodStatuses.map(({ food, status }) => (
               <div key={food} className="flex items-center gap-2">
                 <span
@@ -169,6 +165,8 @@ export default function TodayResult({ todayLog, yesterdayScore, tomorrowDayType,
             ))}
           </div>
         )}
+
+        {/* Edit button */}
         <button
           onClick={onEdit}
           className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--color-cream-dark)] text-sm font-medium text-[var(--color-text-light)] hover:border-[var(--color-terracotta-light)] hover:text-[var(--color-terracotta)] transition-colors duration-200"
