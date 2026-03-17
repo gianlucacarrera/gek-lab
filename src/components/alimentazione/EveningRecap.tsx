@@ -218,6 +218,16 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
     [selectedFoods, dayType, customClassifications]
   );
 
+  // Status for each selected food (for the recap list)
+  const foodStatusList = useMemo(() => {
+    return selectedFoods.map((food) => {
+      const rule = FOOD_RULES.find((r) => r.food === food);
+      const customClass = customClassifications[food];
+      const status = rule?.status ?? customClass?.status ?? 'allowed';
+      return { food, status };
+    });
+  }, [selectedFoods, customClassifications]);
+
   const handleSubmit = async () => {
     setStep('saving');
 
@@ -288,20 +298,9 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
     <>
       <div className="space-y-4">
         <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-          {/* Header with running score */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--color-text)]">
-              Cosa hai mangiato oggi?
-            </h2>
-            {selectedFoods.length > 0 && (
-              <span
-                className="text-lg font-bold transition-colors duration-300"
-                style={{ color: getScoreColor(runningScore) }}
-              >
-                {runningScore}/5
-              </span>
-            )}
-          </div>
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">
+            Cosa hai mangiato oggi?
+          </h2>
 
           <FoodGrid
             foodRules={FOOD_RULES}
@@ -346,6 +345,50 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
             )}
           </div>
         </div>
+
+        {/* Live recap card */}
+        {selectedFoods.length > 0 && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--color-text)]">Punteggio di oggi</h3>
+              <span
+                className="text-xl font-bold transition-colors duration-300"
+                style={{ color: getScoreColor(runningScore) }}
+              >
+                {runningScore}/5
+              </span>
+            </div>
+
+            {/* Food list with status badges */}
+            <div className="space-y-1.5">
+              {foodStatusList.map(({ food, status }) => (
+                <div key={food} className="flex items-center gap-2">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      status === 'excluded'
+                        ? 'bg-[var(--color-terracotta)]'
+                        : status === 'limited'
+                          ? 'bg-[var(--color-amber)]'
+                          : 'bg-[var(--color-sage)]'
+                    }`}
+                  />
+                  <span className="text-sm text-[var(--color-text-light)] flex-1">{food}</span>
+                  <span
+                    className={`text-[10px] font-medium ${
+                      status === 'excluded'
+                        ? 'text-[var(--color-terracotta)]'
+                        : status === 'limited'
+                          ? 'text-[var(--color-amber)]'
+                          : 'text-[var(--color-sage-dark)]'
+                    }`}
+                  >
+                    {status === 'excluded' ? 'da evitare' : status === 'limited' ? 'limitato' : 'ok'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Submit */}
         <button
