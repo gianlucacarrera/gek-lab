@@ -19,12 +19,34 @@ type Step = 'select' | 'loading';
 export default function EveningRecap({ dayType, date, onComplete, initialFoods }: EveningRecapProps) {
   const [step, setStep] = useState<Step>('select');
   const [selectedFoods, setSelectedFoods] = useState<string[]>(initialFoods ?? []);
-  const [note, setNote] = useState('');
+  const [customFoods, setCustomFoods] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState('');
 
   const handleToggle = (food: string) => {
     setSelectedFoods((prev) =>
       prev.includes(food) ? prev.filter((f) => f !== food) : [...prev, food]
     );
+  };
+
+  const handleAddCustom = () => {
+    const trimmed = customInput.trim();
+    if (trimmed && !customFoods.includes(trimmed) && !selectedFoods.includes(trimmed)) {
+      setCustomFoods((prev) => [...prev, trimmed]);
+      setSelectedFoods((prev) => [...prev, trimmed]);
+      setCustomInput('');
+    }
+  };
+
+  const handleRemoveCustom = (food: string) => {
+    setCustomFoods((prev) => prev.filter((f) => f !== food));
+    setSelectedFoods((prev) => prev.filter((f) => f !== food));
+  };
+
+  const handleCustomKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddCustom();
+    }
   };
 
   const handleSubmit = async () => {
@@ -46,8 +68,8 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
         body: JSON.stringify({
           dayType: { id: dayType.id, label: dayType.label, avoidList: dayType.avoidList, severityWeight: dayType.severityWeight },
           selectedFoods: foodStatuses,
+          customFoods: customFoods.length > 0 ? customFoods : undefined,
           score: computed,
-          note: note || undefined,
         }),
       });
 
@@ -66,7 +88,6 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
       selectedFoods,
       score: computed,
       aiComment: comment,
-      note: note || undefined,
     });
 
     updateStreak(date, computed);
@@ -91,23 +112,56 @@ export default function EveningRecap({ dayType, date, onComplete, initialFoods }
           />
         </div>
 
-        {/* Optional note */}
+        {/* Custom food input */}
         <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note sul pasto (opzionale)"
-            rows={2}
-            className="w-full rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] px-4 py-3
-                       text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-lighter)]
-                       focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200 resize-none"
-          />
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">
+            Altro non in lista?
+          </h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={handleCustomKeyDown}
+              placeholder="es. hummus, tofu..."
+              className="flex-1 rounded-xl border border-[var(--color-cream-dark)] bg-[var(--color-cream)] px-4 py-2.5
+                         text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-lighter)]
+                         focus:outline-none focus:border-[var(--color-terracotta)] transition-colors duration-200"
+            />
+            <button
+              onClick={handleAddCustom}
+              disabled={!customInput.trim()}
+              className="px-4 py-2.5 rounded-xl bg-[var(--color-terracotta)] text-white text-sm font-semibold
+                         transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
+            >
+              +
+            </button>
+          </div>
+          {customFoods.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {customFoods.map((food) => (
+                <span
+                  key={food}
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-cream)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-light)]"
+                >
+                  {food}
+                  <button
+                    onClick={() => handleRemoveCustom(food)}
+                    className="text-[var(--color-text-lighter)] hover:text-[var(--color-terracotta)] ml-0.5"
+                    aria-label={`Rimuovi ${food}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Submit button */}
         <button
           onClick={handleSubmit}
-          disabled={selectedFoods.length === 0}
+          disabled={selectedFoods.length === 0 && customFoods.length === 0}
           className="w-full py-3 rounded-xl bg-[var(--color-terracotta)] text-white text-sm font-semibold
                      transition-opacity duration-200 hover:opacity-90 active:opacity-80
                      disabled:opacity-40 disabled:cursor-not-allowed"
