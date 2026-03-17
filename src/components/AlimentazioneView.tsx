@@ -204,8 +204,6 @@ function AlimentazioneActive({
         <JourneyBanner allLogs={allLogs} />
         <TodayCard dayType={dayType} />
 
-        <SugarTracker compact />
-
         {showFoodInput ? (
           <EveningRecap
             dayType={dayType}
@@ -231,6 +229,8 @@ function AlimentazioneActive({
             Registra i pasti di oggi
           </button>
         )}
+
+        <SugarTracker compact />
 
         <div className="pt-2">
           <ScoreCalendar allLogs={allLogs} streak={streak} />
