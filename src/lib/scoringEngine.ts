@@ -102,8 +102,20 @@ export async function classifyCustomFood(food: string): Promise<FoodClassificati
   return final;
 }
 
+const ALCOHOL_KEYWORDS = [
+  'vino', 'birra', 'prosecco', 'champagne', 'spumante',
+  'cocktail', 'spritz', 'liquore', 'amaro', 'grappa',
+  'whisky', 'rum', 'gin', 'vodka', 'aperol', 'negroni',
+];
+
+function isAlcohol(foodName: string): boolean {
+  const lower = foodName.toLowerCase();
+  return ALCOHOL_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 /**
  * Synchronous score calculation using pre-resolved classifications.
+ * On free days, only alcohol is penalized — all other restricted foods are allowed.
  */
 export function calculateScore(
   selectedFoods: string[],
@@ -112,6 +124,7 @@ export function calculateScore(
   customClassifications?: Record<string, FoodClassification>
 ): number {
   let score = 5;
+  const isFreeDay = dayType.id === 'free';
 
   for (const foodName of selectedFoods) {
     const rule = foodRules.find(r => r.food === foodName);
@@ -122,8 +135,12 @@ export function calculateScore(
     } else if (customClassifications?.[foodName]) {
       status = customClassifications[foodName].status;
     } else {
-      // Sync fallback — keyword match
       status = classifyByKeywords(foodName).status;
+    }
+
+    // On free days, skip penalties for everything except alcohol
+    if (isFreeDay && !isAlcohol(foodName)) {
+      continue;
     }
 
     if (status === 'excluded') {
