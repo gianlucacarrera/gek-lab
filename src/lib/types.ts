@@ -20,6 +20,7 @@ export interface DailyLog {
   score: number;
   aiComment: string;
   note?: string;             // optional free-text note
+  sugarUnits?: number;       // sugar units consumed that day
 }
 
 export interface StreakData {

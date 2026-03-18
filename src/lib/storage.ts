@@ -43,7 +43,7 @@ export function cacheFoodClassification(food: string, classification: FoodClassi
 export async function getDailyLogs(): Promise<Record<string, DailyLog>> {
   const { data } = await supabase
     .from('daily_logs')
-    .select('date, day_type_id, selected_foods, score, ai_comment');
+    .select('date, day_type_id, selected_foods, score, ai_comment, sugar_units');
 
   if (!data) return {};
 
@@ -55,6 +55,7 @@ export async function getDailyLogs(): Promise<Record<string, DailyLog>> {
       selectedFoods: row.selected_foods ?? [],
       score: Number(row.score),
       aiComment: row.ai_comment ?? '',
+      sugarUnits: row.sugar_units ?? 0,
     };
   }
   return logs;
@@ -63,7 +64,7 @@ export async function getDailyLogs(): Promise<Record<string, DailyLog>> {
 export async function getDailyLog(date: string): Promise<DailyLog | null> {
   const { data } = await supabase
     .from('daily_logs')
-    .select('date, day_type_id, selected_foods, score, ai_comment')
+    .select('date, day_type_id, selected_foods, score, ai_comment, sugar_units')
     .eq('date', date)
     .maybeSingle();
 
@@ -75,6 +76,7 @@ export async function getDailyLog(date: string): Promise<DailyLog | null> {
     selectedFoods: data.selected_foods ?? [],
     score: Number(data.score),
     aiComment: data.ai_comment ?? '',
+    sugarUnits: data.sugar_units ?? 0,
   };
 }
 
@@ -90,6 +92,7 @@ export async function saveDailyLog(log: DailyLog): Promise<void> {
       selected_foods: log.selectedFoods,
       score: log.score,
       ai_comment: log.aiComment,
+      sugar_units: log.sugarUnits ?? 0,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,date' }
